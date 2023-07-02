@@ -52,7 +52,6 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
     CFAv1Library.InitData public cfaV1;
     bytes32 public constant CFA_ID = keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
     IConstantFlowAgreementV1 cfa;
-    ISuperfluid _host;
 
     uint256 private unlocked = 1;
     modifier lock() {
@@ -291,24 +290,19 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
         require(success && (data.length == 0 || abi.decode(data, (bool))), "UniswapV2: TRANSFER_FAILED");
     }
 
-    constructor(ISuperfluid host) public {
-        assert(address(host) != address(0));
+    constructor() {
         factory = msg.sender;
-        _host = host;
-
-        cfa = IConstantFlowAgreementV1(address(host.getAgreementClass(CFA_ID)));
-        cfaV1 = CFAv1Library.InitData(host, cfa);
-
-        uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL;
-
-        host.registerApp(configWord);
     }
 
     // called once by the factory at time of deployment
-    function initialize(ISuperToken _token0, ISuperToken _token1) external override {
+    function initialize(ISuperToken _token0, ISuperToken _token1, ISuperfluid _host) external override {
         require(msg.sender == factory, "UniswapV2: FORBIDDEN"); // sufficient check
         token0 = _token0;
         token1 = _token1;
+
+        // init cfa
+        cfa = IConstantFlowAgreementV1(address(_host.getAgreementClass(CFA_ID)));
+        cfaV1 = CFAv1Library.InitData(_host, cfa);
     }
 
     // update reserves and, on the first call per block, price accumulators

@@ -15,12 +15,12 @@ contract UniswapV2Factory is IUniswapV2Factory {
     address[] public override allPairs;
 
     // superfluid
-    ISuperfluid _host;
+    ISuperfluid host;
 
-    constructor(address _feeToSetter, ISuperfluid host) {
-        assert(address(host) != address(0));
+    constructor(address _feeToSetter, ISuperfluid _host) {
+        assert(address(_host) != address(0));
         feeToSetter = _feeToSetter;
-        _host = host;
+        host = _host;
     }
 
     function allPairsLength() external view override returns (uint256) {
@@ -33,11 +33,16 @@ contract UniswapV2Factory is IUniswapV2Factory {
         require(token0 != address(0), "UniswapV2: ZERO_ADDRESS");
         require(getPair[token0][token1] == address(0), "UniswapV2: PAIR_EXISTS"); // single check is sufficient
 
-        pair = address(new UniswapV2Pair{salt: keccak256(abi.encodePacked(token0, token1))}(_host));
-        IUniswapV2Pair(pair).initialize(ISuperToken(token0), ISuperToken(token1));
+        pair = address(new UniswapV2Pair{salt: keccak256(abi.encodePacked(token0, token1))}());
+        IUniswapV2Pair(pair).initialize(ISuperToken(token0), ISuperToken(token1), host);
         getPair[token0][token1] = pair;
         getPair[token1][token0] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
+
+        // register superapp
+        uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL;
+        host.registerAppByFactory(ISuperApp(pair), configWord);
+
         emit PairCreated(token0, token1, pair, allPairs.length);
     }
 
