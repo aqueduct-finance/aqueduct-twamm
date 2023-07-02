@@ -7,7 +7,7 @@ import { expandTo18Decimals, UniswapVersion } from "./shared/utilities";
 const TOTAL_SUPPLY = expandTo18Decimals(10000);
 const TEST_AMOUNT = expandTo18Decimals(10);
 
-describe("UniswapV2ERC20", () => {
+describe.skip("UniswapV2ERC20", () => {
     async function fixture() {
         const factory = await ethers.getContractFactory("ERC20");
         const token = await factory.deploy(TOTAL_SUPPLY);

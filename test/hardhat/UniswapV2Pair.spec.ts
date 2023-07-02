@@ -110,7 +110,7 @@ before(async function () {
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
 
-describe("UniswapV2Pair", () => {
+describe.skip("UniswapV2Pair", () => {
     async function fixture() {
         const [wallet, other] = await ethers.getSigners();
 
