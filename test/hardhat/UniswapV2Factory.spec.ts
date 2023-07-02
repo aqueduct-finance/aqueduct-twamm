@@ -34,7 +34,7 @@ before(async function () {
     });
 });
 
-describe.skip("UniswapV2Factory", () => {
+describe("UniswapV2Factory", () => {
     async function fixture() {
         const tmp = await ethers.getContractFactory("UniswapV2Factory");
         const [wallet, other] = await ethers.getSigners();
@@ -74,7 +74,7 @@ describe.skip("UniswapV2Factory", () => {
         const codehash = await factory.PAIR_HASH();
         // const pair = await ethers.getContractFactory("UniswapV2Pair");
         // expect(ethers.utils.keccak256(pair.bytecode)).to.be.eq(codehash);
-        expect(codehash).to.be.eq("0x1509f59adaec7e61d38a1f9f06447a2379eb0dea3bf037d8e56dff6322f5bd8d");
+        expect(codehash).to.be.eq("0xe5722444f12a5d1d65caae5460fe88e55e2a0b043a690be70f8d0e5b726d42a7");
     });
 
     it("createPair", async () => {

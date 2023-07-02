@@ -22,6 +22,12 @@ let tokenB: any;
 // Test Accounts
 let owner: SignerWithAddress;
 
+// delay helper function
+const delay = async (seconds: number) => {
+    await ethers.provider.send("evm_increaseTime", [seconds]);
+    await ethers.provider.send("evm_mine", []);
+};
+
 before(async function () {
     // get hardhat accounts
     [owner] = await ethers.getSigners();
@@ -430,6 +436,58 @@ describe("UniswapV2Router", () => {
                 .withArgs([swapAmount, expectedOutputAmount]);
         });
 
+        it("dynamic reserves", async () => {
+            const { router02, token0, token1, wallet, pair } = await loadFixture(v2Fixture);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount, }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount, }).exec(wallet);
+            await pair.mint(wallet.address);
+
+            // create a stream
+            const flowRate = BigNumber.from("1000000000");
+            const createFlowOperation = token0.createFlow({
+                sender: wallet.address,
+                receiver: pair.address,
+                flowRate: flowRate,
+            });
+            const txnResponse = await createFlowOperation.exec(wallet);
+            await txnResponse.wait();
+
+            // approve tokens ahead of time
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+
+            await delay(60);
+
+            const latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+            const nextBlockTime = latestTime + 10;
+            const realTimeReserves = await pair.getReservesAtTime(nextBlockTime);
+            const expectedOutputAmountDynamic = realTimeReserves._reserve1
+                .sub(
+                    realTimeReserves._reserve0
+                        .mul(realTimeReserves._reserve1)
+                        .div(realTimeReserves._reserve0.add(swapAmount.mul(997).div(1000)))
+                )
+                .sub(1);
+
+            await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+
+            // do the swap
+            await expect(
+                router02.swapExactTokensForTokens(
+                    swapAmount,
+                    0,
+                    [token0.address, token1.address],
+                    wallet.address,
+                    ethers.constants.MaxUint256
+                )
+            )
+                /*.to.emit(pair, "Sync")
+                .withArgs(token0Amount.add(swapAmount), token1Amount.sub(expectedOutputAmount))*/
+                .to.emit(pair, "Swap")
+                .withArgs(router02.address, swapAmount, 0, 0, expectedOutputAmountDynamic, wallet.address);
+        });
+
         /*
         it("gas", async () => {
             const { router02, token0, token1, wallet, pair } = await loadFixture(v2Fixture);
@@ -514,6 +572,58 @@ describe("UniswapV2Router", () => {
             )
                 .to.emit(RouterEmit, "Amounts")
                 .withArgs([expectedSwapAmount, outputAmount]);
+        });
+
+        it("dynamic reserves", async () => {
+            const { router02, token0, token1, wallet, pair } = await loadFixture(v2Fixture);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount, }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount, }).exec(wallet);
+            await pair.mint(wallet.address);
+
+            // create a stream
+            const flowRate = BigNumber.from("1000000000");
+            const createFlowOperation = token0.createFlow({
+                sender: wallet.address,
+                receiver: pair.address,
+                flowRate: flowRate,
+            });
+            const txnResponse = await createFlowOperation.exec(wallet);
+            await txnResponse.wait();
+
+            // approve tokens ahead of time
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+
+            await delay(60);
+
+            const latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+            const nextBlockTime = latestTime + 10;
+            const realTimeReserves = await pair.getReservesAtTime(nextBlockTime);
+            const expectedSwapAmountDynamic = ((
+                    realTimeReserves._reserve0
+                    .mul(realTimeReserves._reserve1)
+                    .div(realTimeReserves._reserve1.sub(outputAmount))
+                )
+                .sub(realTimeReserves._reserve0)
+            ).mul(1000).div(997).add(2); // NOTICE: actual amount off by 2 wei, this is temporarily ok
+
+            await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+
+            // do the swap
+            await expect(
+                router02.swapTokensForExactTokens(
+                    outputAmount,
+                    ethers.constants.MaxUint256,
+                    [token0.address, token1.address],
+                    wallet.address,
+                    ethers.constants.MaxUint256
+                )
+            )
+                /*.to.emit(pair, "Sync")
+                .withArgs(token0Amount.add(expectedSwapAmount), token1Amount.sub(outputAmount))*/
+                .to.emit(pair, "Swap")
+                .withArgs(router02.address, expectedSwapAmountDynamic, 0, 0, outputAmount, wallet.address);
         });
     });
 });

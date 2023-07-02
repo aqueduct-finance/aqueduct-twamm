@@ -67,10 +67,9 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
         time = uint32(block.timestamp % 2 ** 32);
     }
 
-    function getReserves()
-        public
+    function _getStaticReserves()
+        internal
         view
-        override
         returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)
     {
         _reserve0 = reserve0;
@@ -114,7 +113,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
             _reserve0 = uint112(_kLast / _reserve1); // should be a safe downcast
         } else {
             // get static reserves
-            (_reserve0, _reserve1, ) = getReserves();
+            (_reserve0, _reserve1, ) = _getStaticReserves();
         }
     }
 
@@ -167,9 +166,21 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
         (_reserve0, _reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
     }
 
+/*
     function getRealTimeReserves() public view returns (uint112 _reserve0, uint112 _reserve1, uint time) {
         (_reserve0, _reserve1) = getReservesAtTime(uint32(block.timestamp % 2 ** 32));
         time = block.timestamp;
+    }
+*/
+
+    function getReserves()
+        public
+        view
+        override
+        returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast)
+    {
+        _blockTimestampLast = uint32(block.timestamp % 2 ** 32);
+        (_reserve0, _reserve1) = getReservesAtTime(_blockTimestampLast);
     }
 
     function _getUpdatedCumulatives(
