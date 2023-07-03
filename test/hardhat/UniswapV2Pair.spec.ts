@@ -75,13 +75,13 @@ before(async function () {
         "Base Token A",
         "baseTokenA",
         18,
-        ethers.utils.parseEther("10000").toString()
+        ethers.utils.parseEther("100000000000000").toString()
     );
     await sfDeployer.frameworkDeployer.deployWrapperSuperToken(
         "Base Token B",
         "baseTokenB",
         18,
-        ethers.utils.parseEther("10000").toString()
+        ethers.utils.parseEther("100000000000000").toString()
     );
 
     tokenA = await sf.loadSuperToken("baseTokenAx");
@@ -92,14 +92,14 @@ before(async function () {
 
     const setupToken = async (underlyingToken: Contract, superToken: any) => {
         // minting test token
-        await underlyingToken.mint(owner.address, ethers.utils.parseEther("10000").toString());
+        await underlyingToken.mint(owner.address, ethers.utils.parseEther("100000000000000").toString());
 
         // approving DAIx to spend DAI (Super Token object is not an ethers contract object and has different operation syntax)
         await underlyingToken.approve(superToken.address, ethers.constants.MaxInt256);
         await underlyingToken.connect(owner).approve(superToken.address, ethers.constants.MaxInt256);
         // Upgrading all DAI to DAIx
         const ownerUpgrade = superToken.upgrade({
-            amount: ethers.utils.parseEther("10000").toString(),
+            amount: ethers.utils.parseEther("100000000000000").toString(),
         });
         await ownerUpgrade.exec(owner);
     };
@@ -110,7 +110,7 @@ before(async function () {
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
 
-describe.skip("UniswapV2Pair", () => {
+describe("UniswapV2Pair", () => {
     async function fixture() {
         const [wallet, other] = await ethers.getSigners();
 
@@ -203,7 +203,7 @@ describe.skip("UniswapV2Pair", () => {
         expect(await pair.totalSupply()).to.eq(expectedInitialLiquidity);
 
         // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getRealTimeReserves();
+        let realTimeReserves = await pair.getReserves();
         expect(realTimeReserves._reserve0).to.equal(token0Amount);
         expect(realTimeReserves._reserve1).to.equal(token1Amount);
 
@@ -539,7 +539,7 @@ describe.skip("UniswapV2Pair", () => {
         expect(await pair.totalSupply()).to.eq(expectedLiquidity);
 
         // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getRealTimeReserves();
+        let realTimeReserves = await pair.getReserves();
         expect(realTimeReserves._reserve0).to.equal(token0Amount);
         expect(realTimeReserves._reserve1).to.equal(token1Amount);
 
@@ -697,7 +697,7 @@ describe.skip("UniswapV2Pair", () => {
         await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
 
         // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getRealTimeReserves();
+        let realTimeReserves = await pair.getReserves();
         expect(realTimeReserves._reserve0).to.equal(token0Amount);
         expect(realTimeReserves._reserve1).to.equal(token1Amount);
 
@@ -721,7 +721,7 @@ describe.skip("UniswapV2Pair", () => {
         );
 
         const checkStaticReserves = async () => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             expect(realTimeReserves._reserve0).to.equal(token0Amount);
             expect(realTimeReserves._reserve1).to.equal(token1Amount);
         };
@@ -731,7 +731,7 @@ describe.skip("UniswapV2Pair", () => {
             const dt = time - timeStart;
 
             if (dt > 0) {
-                const realTimeReserves = await pair.getRealTimeReserves();
+                const realTimeReserves = await pair.getReserves();
                 const totalAmountA = flowRate.mul(dt);
                 const k = token0Amount.mul(token1Amount);
                 const aNoFees = token0Amount.add(totalAmountA);
@@ -751,7 +751,7 @@ describe.skip("UniswapV2Pair", () => {
         };
 
         const checkBalances = async () => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             const poolBalance1 = BigNumber.from(
                 await token1.balanceOf({
                     account: pair.address,
@@ -818,7 +818,7 @@ describe.skip("UniswapV2Pair", () => {
         await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
 
         // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getRealTimeReserves();
+        let realTimeReserves = await pair.getReserves();
         expect(realTimeReserves._reserve0).to.equal(token0Amount);
         expect(realTimeReserves._reserve1).to.equal(token1Amount);
 
@@ -842,7 +842,7 @@ describe.skip("UniswapV2Pair", () => {
         );
 
         const checkStaticReserves = async () => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             expect(realTimeReserves._reserve0).to.equal(token0Amount);
             expect(realTimeReserves._reserve1).to.equal(token1Amount);
         };
@@ -852,7 +852,7 @@ describe.skip("UniswapV2Pair", () => {
             const dt = time - timeStart;
 
             if (dt > 0) {
-                const realTimeReserves = await pair.getRealTimeReserves();
+                const realTimeReserves = await pair.getReserves();
                 const totalAmountB = flowRate.mul(dt);
                 const k = token0Amount.mul(token1Amount);
                 const bNoFees = token1Amount.add(totalAmountB);
@@ -872,7 +872,7 @@ describe.skip("UniswapV2Pair", () => {
         };
 
         const checkBalances = async () => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             const poolBalance0 = BigNumber.from(
                 await token0.balanceOf({
                     account: pair.address,
@@ -937,7 +937,7 @@ describe.skip("UniswapV2Pair", () => {
         await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
 
         // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getRealTimeReserves();
+        let realTimeReserves = await pair.getReserves();
         expect(realTimeReserves._reserve0).to.equal(token0Amount);
         expect(realTimeReserves._reserve1).to.equal(token1Amount);
 
@@ -983,7 +983,7 @@ describe.skip("UniswapV2Pair", () => {
         //                                                  //
         //////////////////////////////////////////////////////
         const checkDynamicReservesParadigmFormula = async (dt: number) => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             const poolReserveA = parseFloat(token0Amount.toString());
             const poolReserveB = parseFloat(token1Amount.toString());
             const totalFlowA = parseFloat(flowRate0.toString());
@@ -1028,7 +1028,7 @@ describe.skip("UniswapV2Pair", () => {
         //                                                      //
         //////////////////////////////////////////////////////////
         const checkDynamicReservesParadigmApprox = async (dt: number) => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             const poolReserveA = parseFloat(token0Amount.toString());
             const poolReserveB = parseFloat(token1Amount.toString());
             const totalFlowA = (parseFloat(flowRate0.toString()) * (10000 - UPPER_FEE)) / 10000; // upper fee should be taken from input amounts
@@ -1061,7 +1061,7 @@ describe.skip("UniswapV2Pair", () => {
         };
 
         const checkStaticReserves = async () => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             expect(realTimeReserves._reserve0).to.equal(token0Amount);
             expect(realTimeReserves._reserve1).to.equal(token1Amount);
         };
@@ -1078,7 +1078,7 @@ describe.skip("UniswapV2Pair", () => {
         };
 
         const checkBalances = async () => {
-            const realTimeReserves = await pair.getRealTimeReserves();
+            const realTimeReserves = await pair.getReserves();
             const poolBalance0 = BigNumber.from(
                 await token0.balanceOf({
                     account: pair.address,
@@ -1173,5 +1173,40 @@ describe.skip("UniswapV2Pair", () => {
             .sub(1);
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
         await pair.swap(0, expectedOutputAmount, wallet.address, "0x");
+    });
+
+    it("twap:large_flow_0", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // check initial reserves (shouldn't have changed)
+        let realTimeReserves = await pair.getReserves();
+        expect(realTimeReserves._reserve0).to.equal(token0Amount);
+        expect(realTimeReserves._reserve1).to.equal(token1Amount);
+
+        let flowRate = BigNumber.from("1000000000000000");
+        let createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate
+        });
+        let txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        await delay(60);
+
+        flowRate = BigNumber.from("100000000");
+        createFlowOperation = token1.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate
+        });
+        txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        await pair.getReserves();
     });
 });

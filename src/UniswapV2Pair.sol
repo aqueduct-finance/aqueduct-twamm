@@ -127,7 +127,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
 
         // add fees accumulated since last reserve update
         if (totalFlow0 > 0 && totalFlow1 > 0) {
-            uint256 flowDirection = (totalFlow0 * reserve1) / reserve0;
+            uint256 flowDirection = (uint(totalFlow0) * uint(reserve1)) / reserve0;
             if (flowDirection > totalFlow1) {
                 int reserve0Diff = (int(uint(reserve0)) - int(uint(_reserve0)));
                 _reserve0 += uint112(
