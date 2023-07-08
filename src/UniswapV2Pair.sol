@@ -195,7 +195,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
         _twap1CumulativeLast = twap1CumulativeLast;
 
         if (totalFlow0 > 0 && totalFlow1 > 0) {
-            uint256 flowDirection = (totalFlow0 * reserve1) / reserve0;
+            uint256 flowDirection = (uint(totalFlow0) * uint(reserve1)) / reserve0;
             if (flowDirection > totalFlow1) {
                 // reserve0 - _reserve0 can be negative, hence the messy casts
                 _twap0CumulativeLast += uint256(
