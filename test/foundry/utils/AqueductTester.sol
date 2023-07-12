@@ -11,12 +11,15 @@ import {SuperfluidFrameworkDeployer, Superfluid, CFAv1Library, IDAv1Library, Sup
 import {ConstantFlowAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/agreements/ConstantFlowAgreementV1.sol";
 import {InstantDistributionAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/agreements/InstantDistributionAgreementV1.sol";
 import {ERC1820RegistryCompiled} from "@superfluid-finance/ethereum-contracts/contracts/libs/ERC1820RegistryCompiled.sol";
+import {SuperTokenV1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
 
 import {TestGovernance} from "@superfluid-finance/ethereum-contracts/contracts/utils/TestGovernance.sol";
 import {TestToken} from "@superfluid-finance/ethereum-contracts/contracts/utils/TestToken.sol";
-import {SuperToken} from "@superfluid-finance/ethereum-contracts/contracts/superfluid/SuperToken.sol";
+import {ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/superfluid/SuperToken.sol";
 
 contract AqueductTester is Test {
+    using SuperTokenV1Library for ISuperToken;
+
     AqueductV1Pair public aqueductV1Pair;
     AqueductV1Factory public aqueductV1Factory;
     SuperfluidFrameworkDeployer.Framework internal sf;
@@ -24,11 +27,11 @@ contract AqueductTester is Test {
 
     TestToken internal underlyingTokenA;
     TestToken internal underlyingTokenB;
-    SuperToken internal superTokenA;
-    SuperToken internal superTokenB;
+    ISuperToken internal superTokenA;
+    ISuperToken internal superTokenB;
 
-    uint256 internal constant INIT_TOKEN_BALANCE = 10000000;
-    uint256 internal constant INIT_SUPER_TOKEN_BALANCE = 1000000;
+    uint256 internal constant INIT_TOKEN_BALANCE = 10000000 * 10 ** 18;
+    uint256 internal constant INIT_SUPER_TOKEN_BALANCE = 1000000 * 10 ** 18;
 
     address internal constant ADMIN = address(0x1);
     address internal constant ALICE = address(0x2);
@@ -52,7 +55,7 @@ contract AqueductTester is Test {
         setUpTokens();
     }
 
-    function setUpTokens() public {
+    function setUpTokens() internal {
         (underlyingTokenA, superTokenA) = deployer.deployWrapperSuperToken(
             "Test Token 0",
             "TT0",
@@ -83,5 +86,18 @@ contract AqueductTester is Test {
             superTokenB.upgrade(INIT_SUPER_TOKEN_BALANCE);
             vm.stopPrank();
         }
+    }
+
+    function addLiquidity(
+        ISuperToken tokenA,
+        ISuperToken tokenB,
+        AqueductV1Pair aqueductV1Pair,
+        address account,
+        uint256 tokenAAmount,
+        uint256 tokenBAmount
+    ) internal {
+        tokenA.transfer(address(aqueductV1Pair), tokenAAmount);
+        tokenB.transfer(address(aqueductV1Pair), tokenBAmount);
+        aqueductV1Pair.mint(account);
     }
 }
