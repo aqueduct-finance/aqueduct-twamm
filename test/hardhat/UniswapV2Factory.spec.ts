@@ -74,7 +74,7 @@ describe("UniswapV2Factory", () => {
         const codehash = await factory.PAIR_HASH();
         // const pair = await ethers.getContractFactory("UniswapV2Pair");
         // expect(ethers.utils.keccak256(pair.bytecode)).to.be.eq(codehash);
-        expect(codehash).to.be.eq("0x69883df3d7c1a0f7b46de718db21263e58b561a10b7aa61c054bbb61d592050d");
+        expect(codehash).to.be.eq("0xa60cd237a075b566190bf8a0fdf5934cd86cbe39c62bd6fe0c0ee4a1691e43ac");
     });
 
     it("createPair", async () => {

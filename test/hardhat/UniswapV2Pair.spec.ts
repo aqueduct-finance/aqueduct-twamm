@@ -776,7 +776,7 @@ describe("UniswapV2Pair", () => {
         await checkBalances();
 
         // cancel stream and check that swapped balance is withdrawn
-        const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
+        const baseToken1Balance = expandTo18Decimals(100000000000000).sub(token1Amount);
         expect(
             BigNumber.from(
                 await token1.balanceOf({
@@ -897,7 +897,7 @@ describe("UniswapV2Pair", () => {
         await checkBalances();
 
         // cancel stream and check that swapped balance is withdrawn
-        const baseToken0Balance = expandTo18Decimals(10000).sub(token0Amount);
+        const baseToken0Balance = expandTo18Decimals(100000000000000).sub(token0Amount);
         expect(
             BigNumber.from(
                 await token0.balanceOf({

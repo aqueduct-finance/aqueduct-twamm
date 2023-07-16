@@ -342,7 +342,7 @@ contract UniswapV2Pair is IUniswapV2Pair, UniswapV2ERC20, SuperAppBase {
         // update cumulatives
         // assuming _reserve{0,1} are real time
         if (totalFlow0 > 0 && totalFlow1 > 0) {
-            uint256 flowDirection = (totalFlow0 * reserve1) / reserve0;
+            uint256 flowDirection = (uint(totalFlow0) * uint(reserve1)) / reserve0;
             if (flowDirection > totalFlow1) {
                 uint112 swappedAmount0 = uint112(
                     uint(
