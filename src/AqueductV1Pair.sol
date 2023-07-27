@@ -827,6 +827,16 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         _updateReserves(poolBalance0, poolBalance1, time);
     }
 
+    function _handleBeforeCallback(bytes calldata _agreementData) internal view returns (bytes memory) {
+        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
+        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        (address user, ) = abi.decode(_agreementData, (address, address));
+        (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
+        (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
+
+        return abi.encode(totalFlow0, totalFlow1, flow0, flow1);
+    }
+
     function beforeAgreementCreated(
         ISuperToken, // _superToken,
         address, // agreementClass
@@ -834,13 +844,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         bytes calldata agreementData,
         bytes calldata // _ctx
     ) external view virtual override returns (bytes memory) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
-        (address user, ) = abi.decode(agreementData, (address, address));
-        (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
-        (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
-
-        return abi.encode(totalFlow0, totalFlow1, flow0, flow1);
+        return _handleBeforeCallback(agreementData);
     }
 
     function afterAgreementCreated(
@@ -862,13 +866,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         bytes calldata agreementData,
         bytes calldata // _ctx
     ) external view virtual override returns (bytes memory) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
-        (address user, ) = abi.decode(agreementData, (address, address));
-        (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
-        (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
-
-        return abi.encode(totalFlow0, totalFlow1, flow0, flow1);
+        return _handleBeforeCallback(agreementData);
     }
 
     function afterAgreementUpdated(
@@ -890,13 +888,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         bytes calldata agreementData,
         bytes calldata // _ctx
     ) external view virtual override returns (bytes memory) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
-        (address user, ) = abi.decode(agreementData, (address, address));
-        (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
-        (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
-
-        return abi.encode(totalFlow0, totalFlow1, flow0, flow1);
+        return _handleBeforeCallback(agreementData);
     }
 
     function afterAgreementTerminated(
