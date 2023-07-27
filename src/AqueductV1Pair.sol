@@ -441,14 +441,14 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // TODO: optimize for gas (timeElapsed already calculated in swap() )
         // TODO: are these cumulatives necessary? could you calculate TWAP with the twap cumulatives?
         uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
-        unchecked {
+        /*unchecked {
             uint32 timeElapsedSinceBlockTimestampLast = blockTimestamp - _blockTimestampLast; // overflow is desired
             if (timeElapsedSinceBlockTimestampLast > 0 && reserve0 != 0 && reserve1 != 0) {
                 // * never overflows, and + overflow is desired
                 price0CumulativeLast += _getPriceCumlative(reserve1, reserve0, timeElapsedSinceBlockTimestampLast);
                 price1CumulativeLast += _getPriceCumlative(reserve0, reserve1, timeElapsedSinceBlockTimestampLast);
             }
-        }
+        }*/
 
         // TODO: optimize
         uint32 timeElapsedSinceInputTime = time - _blockTimestampLast;
@@ -463,7 +463,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 totalFlow1,
                 timeElapsedSinceInputTime
             );
-            _totalSwappedFunds0 = _totalSwappedFunds0 + _reserve0 - reserve0;
+            uint112 streamedAmount0 = totalFlow0 > 0 ? totalFlow0 * timeElapsedSinceInputTime : 0;
+            _totalSwappedFunds0 += streamedAmount0 + _reserve0 - reserve0;
         }
         if (totalFlow0 > 0) {
             twap1CumulativeLast += _getTwapCumulative(
@@ -473,7 +474,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 totalFlow0,
                 timeElapsedSinceInputTime
             );
-            _totalSwappedFunds1 = _totalSwappedFunds1 + _reserve1 - reserve1;
+            uint112 streamedAmount1 = totalFlow1 > 0 ? totalFlow1 * timeElapsedSinceInputTime : 0;
+            _totalSwappedFunds1 += streamedAmount1 + _reserve1 - reserve1;
         }
     }
 

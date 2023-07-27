@@ -933,7 +933,7 @@ describe("AqueductV1Pair", () => {
         expect(newExpectedAmountsOut.balance0).to.be.equal(BigNumber.from(0));
     });
 
-    it.skip("twap:both_tokens", async () => {
+    it("twap:both_tokens", async () => {
         const { pair, wallet, token0, token1 } = await loadFixture(fixture);
 
         const token0Amount = expandTo18Decimals(10);
