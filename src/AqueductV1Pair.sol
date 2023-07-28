@@ -636,9 +636,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @param to The recipient address of the swapped tokens.
      */
     function swap(uint256 amount0Out, uint256 amount1Out, address to) external override lock {
-        // FIXME: Causing 17 hardhat tests to fail, so commenting out for now so can continue working
-        // Example Error from tests: "Error: VM Exception while processing transaction: reverted with custom error 'PAIR_FORBIDDEN()'"
-        // if (msg.sender != factory) revert PAIR_FORBIDDEN(); // TODO: is this ok?
+        if (msg.sender != factory) revert PAIR_FORBIDDEN(); // TODO: is this ok?
         if (amount0Out <= 0 && amount1Out <= 0) revert PAIR_INSUFFICIENT_OUTPUT_AMOUNT();
 
         uint256 amount0In;
