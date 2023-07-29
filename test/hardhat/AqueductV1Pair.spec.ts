@@ -143,7 +143,10 @@ describe("AqueductV1Pair", () => {
         // impersonate factory to manually bypass auction and call swap()
         const auctionAddress = await factory.auction();
         const mockAuctionSigner = await ethers.getSigner(auctionAddress);
-        await network.provider.send("hardhat_setBalance", [auctionAddress, ethers.utils.hexValue(ethers.utils.parseEther("1.0"))]);
+        await network.provider.send("hardhat_setBalance", [
+            auctionAddress,
+            ethers.utils.hexValue(ethers.utils.parseEther("1.0")),
+        ]);
 
         return { pair, token0, token1, wallet, other, factory, auctionAddress, mockAuctionSigner };
     }
@@ -320,16 +323,15 @@ describe("AqueductV1Pair", () => {
                     amount: swapAmount,
                 })
                 .exec(wallet);
-            
+
             // impersonate factory contract to bypass auction and call swap() directly
             await network.provider.request({
                 method: "hardhat_impersonateAccount",
-                params: [auctionAddress]}
-            );
-            await expect(pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount.add(1), wallet.address)).to.be.revertedWithCustomError(
-                pair,
-                "PAIR_K"
-            );
+                params: [auctionAddress],
+            });
+            await expect(
+                pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount.add(1), wallet.address)
+            ).to.be.revertedWithCustomError(pair, "PAIR_K");
             await pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount, wallet.address);
         });
     });
@@ -356,12 +358,11 @@ describe("AqueductV1Pair", () => {
             // impersonate factory contract to bypass auction and call swap() directly
             await network.provider.request({
                 method: "hardhat_impersonateAccount",
-                params: [auctionAddress]}
-            );
-            await expect(pair.connect(mockAuctionSigner).swap(outputAmount.add(1), 0, wallet.address)).to.be.revertedWithCustomError(
-                pair,
-                "PAIR_K"
-            );
+                params: [auctionAddress],
+            });
+            await expect(
+                pair.connect(mockAuctionSigner).swap(outputAmount.add(1), 0, wallet.address)
+            ).to.be.revertedWithCustomError(pair, "PAIR_K");
             await pair.connect(mockAuctionSigner).swap(outputAmount, 0, wallet.address);
         });
     });
@@ -384,8 +385,8 @@ describe("AqueductV1Pair", () => {
         // impersonate factory contract to bypass auction and call swap() directly
         await network.provider.request({
             method: "hardhat_impersonateAccount",
-            params: [auctionAddress]}
-        );
+            params: [auctionAddress],
+        });
         await expect(pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount, wallet.address))
             //.to.emit(token1, "Transfer")
             //.withArgs(pair.address, wallet.address, expectedOutputAmount)
@@ -443,8 +444,8 @@ describe("AqueductV1Pair", () => {
         // impersonate factory contract to bypass auction and call swap() directly
         await network.provider.request({
             method: "hardhat_impersonateAccount",
-            params: [auctionAddress]}
-        );
+            params: [auctionAddress],
+        });
         await expect(pair.connect(mockAuctionSigner).swap(expectedOutputAmount, 0, wallet.address))
             //.to.emit(token0, "Transfer")
             //.withArgs(pair.address, wallet.address, expectedOutputAmount)
@@ -658,8 +659,8 @@ describe("AqueductV1Pair", () => {
         // impersonate factory contract to bypass auction and call swap() directly
         await network.provider.request({
             method: "hardhat_impersonateAccount",
-            params: [auctionAddress]}
-        );
+            params: [auctionAddress],
+        });
         // swap to a new price eagerly instead of syncing
         await pair.connect(mockAuctionSigner).swap(0, expandTo18Decimals(1), wallet.address); // make the price nice
 
@@ -694,8 +695,8 @@ describe("AqueductV1Pair", () => {
         // impersonate factory contract to bypass auction and call swap() directly
         await network.provider.request({
             method: "hardhat_impersonateAccount",
-            params: [auctionAddress]}
-        );
+            params: [auctionAddress],
+        });
         await pair.connect(mockAuctionSigner).swap(expectedOutputAmount, 0, wallet.address);
 
         const expectedLiquidity = expandTo18Decimals(1000);
@@ -705,7 +706,9 @@ describe("AqueductV1Pair", () => {
     });
 
     it("feeTo:on", async () => {
-        const { pair, wallet, token0, token1, other, factory, auctionAddress, mockAuctionSigner } = await loadFixture(fixture);
+        const { pair, wallet, token0, token1, other, factory, auctionAddress, mockAuctionSigner } = await loadFixture(
+            fixture
+        );
 
         await factory.setFeeTo(other.address);
 
@@ -724,8 +727,8 @@ describe("AqueductV1Pair", () => {
         // impersonate factory contract to bypass auction and call swap() directly
         await network.provider.request({
             method: "hardhat_impersonateAccount",
-            params: [auctionAddress]}
-        );
+            params: [auctionAddress],
+        });
         await pair.connect(mockAuctionSigner).swap(expectedOutputAmount, 0, wallet.address);
 
         const expectedLiquidity = expandTo18Decimals(1000);
@@ -1195,12 +1198,11 @@ describe("AqueductV1Pair", () => {
         // impersonate factory contract to bypass auction and call swap() directly
         await network.provider.request({
             method: "hardhat_impersonateAccount",
-            params: [auctionAddress]}
-        );
-        await expect(pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount.add("1"), wallet.address)).to.be.revertedWithCustomError(
-            pair,
-            "PAIR_K"
-        );
+            params: [auctionAddress],
+        });
+        await expect(
+            pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount.add("1"), wallet.address)
+        ).to.be.revertedWithCustomError(pair, "PAIR_K");
 
         // make a correct discrete swap
         latestTime = (await ethers.provider.getBlock("latest")).timestamp;

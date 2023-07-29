@@ -81,7 +81,7 @@ contract AqueductV1PairIntegrationTest is AqueductTester {
             uint256 totalSupply = aqueductV1Pair.totalSupply();
             assertEq(totalSupply, expectedInitialLiquidity);
 
-            (uint112 _reserve0, uint112 _reserve1, uint time) = aqueductV1Pair.getRealTimeReserves();
+            (uint112 _reserve0, uint112 _reserve1, uint time) = aqueductV1Pair.getReserves();
             assertEq(_reserve0, superTokenAAmount);
             assertEq(_reserve1, superTokenBAmount);
             assertEq(time, block.timestamp);
