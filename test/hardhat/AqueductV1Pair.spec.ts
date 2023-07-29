@@ -258,21 +258,6 @@ describe("AqueductV1Pair", () => {
             .to.emit(pair, "Mint")
             .withArgs(wallet.address, lpToken0Amount, lpToken1Amount);
 
-        console.log("_reserve0:                ", realTimeReserves2._reserve0.toString());
-        console.log("_reserve1:                ", realTimeReserves2._reserve1.toString());
-        console.log("__________________________");
-
-        console.log("realTimeReserves2:        ", realTimeReserves2._reserve1.toString());
-        console.log("lpToken1Amount:           ", lpToken1Amount.toString());
-        console.log("expectedInitialLiquidity: ", expectedInitialLiquidity.toString());
-        console.log("_reserve1:                ", realTimeReserves2._reserve1.toString());
-        console.log("__________________________");
-
-        console.log("expectedInitialLiquidity: ", expectedInitialLiquidity.toString());
-        console.log("expectedNewLiquidity:     ", expectedNewLiquidity.toString());
-        console.log("newTotalSupply:           ", (await pair.totalSupply()).toString());
-        console.log("expectedTotalLiquidity:   ", expectedTotalLiquidity.toString());
-
         expect(await pair.totalSupply()).to.eq(expectedTotalLiquidity);
         expect(await pair.balanceOf(wallet2.address)).to.eq(expectedNewLiquidity);
     });
