@@ -187,10 +187,10 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
         // add fees accumulated since last reserve update
         if (totalFlow0 > 0) {
-            reserve0 += _calculateFees(totalFlow0, timeElapsed, TWAP_FEE);
+            reserve0 += _calculateFees(totalFlow0, timeElapsed);
         }
         if (totalFlow1 > 0) {
-            reserve1 += _calculateFees(totalFlow1, timeElapsed, TWAP_FEE);
+            reserve1 += _calculateFees(totalFlow1, timeElapsed);
         }
     }
 
@@ -199,11 +199,10 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @dev This function calculates the fees accumulated on a total flow over the time elasped.
      * @param totalFlow The total flow of the token.
      * @param timeElapsed The time period over which the fees are to be calculated.
-     * @param fee The fee percentage.
      * @return fees calculated fees.
      */
-    function _calculateFees(uint112 totalFlow, uint32 timeElapsed, uint112 fee) internal pure returns (uint112 fees) {
-        fees = (totalFlow * timeElapsed * fee) / 10000;
+    function _calculateFees(uint112 totalFlow, uint32 timeElapsed) internal pure returns (uint112 fees) {
+        fees = (totalFlow * timeElapsed * TWAP_FEE) / 10000;
     }
 
     /**
