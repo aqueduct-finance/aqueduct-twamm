@@ -36,13 +36,14 @@ contract AqueductV1Auction is IAqueductV1Auction {
         if (block.timestamp > auction.lastAuctionTimestamp && auction.winningBid > 0) {
             executeWinningBid(pair);
             auction = getAuction[pair];
+        } else if (block.timestamp > auction.lastAuctionTimestamp) {
+            auction.lastAuctionTimestamp = block.timestamp;
         }
 
         //  if token1, need to convert to token0 denominated value
         uint256 bidValue = bid;
         if (token == address(IAqueductV1Pair(pair).token1())) {
             (uint112 reserve0, uint112 reserve1, ) = IAqueductV1Pair(pair).getReserves();
-            // TODO: multiply all bids by some constant X to increase precision?
             bidValue = (bid * reserve0) / reserve1;
         }
 
@@ -53,7 +54,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         // TODO: track balance for safety?
 
         // return old winner's funds
-        if (auction.winningBid > 0) {
+        if (auction.winningBid + auction.winningSwapAmount > 0) {
             _safeTransfer(auction.token, auction.winningBidderAddress, auction.winningBid + auction.winningSwapAmount);
         }
 
@@ -95,9 +96,9 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
         // TODO: track balance for safety?
 
-        // reset auction (should be ok to just reset the bid amount and timestamp?)
-        auction.lastAuctionTimestamp = block.timestamp;
+        // reset auction
         auction.winningBid = 0;
+        auction.winningSwapAmount = 0;
         getAuction[pair] = auction;
     }
 
