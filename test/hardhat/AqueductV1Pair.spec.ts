@@ -470,44 +470,6 @@ describe.skip("AqueductV1Pair", () => {
         ).to.eq(totalSupplyToken1.sub(token1Amount).sub(swapAmount));
     });
 
-    /*
-  NOTE: modifications to contract caused changes in gas cost, so temporarily removing this test
-  it("swap:gas", async () => {
-    const { pair, wallet, token0, token1 } = await loadFixture(fixture);
-
-    const token0Amount = expandTo18Decimals(5);
-    const token1Amount = expandTo18Decimals(10);
-    await addLiquidity(
-      token0,
-      token1,
-      pair,
-      wallet,
-      token0Amount,
-      token1Amount
-    );
-
-    // ensure that setting price{0,1}CumulativeLast for the first time doesn't affect our gas math
-    await ethers.provider.send("evm_mine", [
-      (await ethers.provider.getBlock("latest")).timestamp + 1,
-    ]);
-
-    await time.setNextBlockTimestamp(
-      (await ethers.provider.getBlock("latest")).timestamp + 1
-    );
-    await pair.sync();
-
-    const swapAmount = expandTo18Decimals(1);
-    const expectedOutputAmount = BigNumber.from("453305446940074565");
-    await token1.transfer({receiver: pair.address, amount: swapAmount}).exec(wallet);
-    await time.setNextBlockTimestamp(
-      (await ethers.provider.getBlock("latest")).timestamp + 1
-    );
-    const tx = await pair.swap(expectedOutputAmount, 0, wallet.address);
-    const receipt = await tx.wait();
-    expect(receipt.gasUsed).to.eq(73959);
-  });
-*/
-
     it("burn", async () => {
         const { pair, wallet, token0, token1 } = await loadFixture(fixture);
 

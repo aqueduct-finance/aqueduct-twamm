@@ -85,16 +85,6 @@ describe("AqueductV1Factory", () => {
         await createPair(factory, TEST_ADDRESSES.slice().reverse() as [string, string]);
     });
 
-    /*
-    NOTE: modifications to contract caused changes in gas cost, so temporarily removing this test
-    it("createPair:gas", async () => {
-        const { factory } = await loadFixture(fixture);
-        const tx = await factory.createPair(...TEST_ADDRESSES);
-        const receipt = await tx.wait();
-        expect(receipt.gasUsed).to.eq(2355845);
-    });
-    */
-
     it("setFeeTo", async () => {
         const { factory, wallet, other } = await loadFixture(fixture);
         await expect(factory.connect(other).setFeeTo(other.address)).to.be.revertedWithCustomError(factory, "FACTORY_FORBIDDEN");
