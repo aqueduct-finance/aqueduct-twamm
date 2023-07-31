@@ -7,4 +7,7 @@ interface IAqueductV1Auction {
     error AUCTION_EXPIRED();
     error AUCTION_INSUFFICIENT_BID();
     error AUCTION_TRANSFER_FAILED();
+    error AUCTION_RETURN_FUNDS_FAILED(uint256, uint256);
+
+    function safeExecuteWinningBid(address pair) external;
 }
