@@ -2,7 +2,6 @@
 pragma solidity ^0.8.12;
 
 interface IAqueductV1Auction {
-
     error AUCTION_ALREADY_EXECUTED();
     error AUCTION_PAIR_DOESNT_EXIST();
     error AUCTION_EXPIRED();

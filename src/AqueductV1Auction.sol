@@ -28,7 +28,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         address token,
         address pair,
         uint256 swapAmount,
-        uint112 reserve0, 
+        uint112 reserve0,
         uint112 reserve1,
         address token0
     ) internal returns (uint256 amountOut) {
@@ -76,7 +76,14 @@ contract AqueductV1Auction is IAqueductV1Auction {
         if (auction.winningBid + auction.winningSwapAmount > 0) {
             // swap locked funds back
             address oppositeToken = auction.token == token0 ? token1 : token0;
-            uint256 returnAmountOut = swap(oppositeToken, pair, auction.lockedSwapAmountOut, reserve0, reserve1, token0);
+            uint256 returnAmountOut = swap(
+                oppositeToken,
+                pair,
+                auction.lockedSwapAmountOut,
+                reserve0,
+                reserve1,
+                token0
+            );
 
             // transfer
             _safeTransfer(auction.token, auction.winningBidderAddress, auction.winningBid + returnAmountOut);
@@ -90,7 +97,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         }
 
         // revert if bid's value is lte to winning bid or bid is under 0.3% of total amount
-        if (bidValue <= auction.winningBid || bid < (bid + swapAmount) * 3 / 1000) revert AUCTION_INSUFFICIENT_BID();
+        if (bidValue <= auction.winningBid || bid < ((bid + swapAmount) * 3) / 1000) revert AUCTION_INSUFFICIENT_BID();
         TransferHelper.safeTransferFrom(token, msg.sender, address(this), bid + swapAmount);
 
         // just swap the swap amount, bid/fee will be sent in executeWinningBid()
