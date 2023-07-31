@@ -51,25 +51,14 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
     // superfluid
     using CFAv1Library for CFAv1Library.InitData;
-
     CFAv1Library.InitData public cfaV1;
     bytes32 public constant CFA_ID = keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
     IConstantFlowAgreementV1 public cfa;
-    ISuperfluid public _host;
 
     uint256 private unlocked = 1;
 
-    constructor(ISuperfluid host) {
-        assert(address(host) != address(0));
+    constructor() {
         factory = msg.sender;
-        _host = host;
-
-        cfa = IConstantFlowAgreementV1(address(host.getAgreementClass(CFA_ID)));
-        cfaV1 = CFAv1Library.InitData(host, cfa);
-
-        uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL;
-
-        host.registerApp(configWord);
     }
 
     /**
@@ -79,11 +68,16 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      *      with "PAIR_FORBIDDEN".
      * @param _token0 The first token in the pair.
      * @param _token1 The second token in the pair.
+     * @param _host the superfluid host contract
      */
-    function initialize(ISuperToken _token0, ISuperToken _token1) external override {
+    function initialize(ISuperToken _token0, ISuperToken _token1, ISuperfluid _host) external override {
         if (msg.sender != factory) revert PAIR_FORBIDDEN(); // sufficient check
         token0 = _token0;
         token1 = _token1;
+
+        // init cfa
+        cfa = IConstantFlowAgreementV1(address(_host.getAgreementClass(CFA_ID)));
+        cfaV1 = CFAv1Library.InitData(_host, cfa);
     }
 
     /**

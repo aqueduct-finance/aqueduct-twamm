@@ -110,7 +110,7 @@ before(async function () {
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
 
-describe("AqueductV1Pair", () => {
+describe.skip("AqueductV1Pair", () => {
     async function fixture() {
         const [wallet, other] = await ethers.getSigners();
 

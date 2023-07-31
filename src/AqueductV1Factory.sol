@@ -6,7 +6,7 @@ import {IAqueductV1Auction} from "./interfaces/IAqueductV1Auction.sol";
 import {AqueductV1Auction} from "./AqueductV1Auction.sol";
 import {AqueductV1Pair} from "./AqueductV1Pair.sol";
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
-import {ISuperfluid, ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import {ISuperfluid, ISuperToken, SuperAppDefinitions, ISuperApp} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {TransferHelper} from "./libraries/TransferHelper.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
@@ -20,15 +20,15 @@ contract AqueductV1Factory is IAqueductV1Factory {
     address[] public override allPairs;
 
     // superfluid
-    ISuperfluid internal _host;
+    ISuperfluid host;
 
     // auction
     IAqueductV1Auction public override auction;
 
-    constructor(address _feeToSetter, ISuperfluid host) {
-        assert(address(host) != address(0));
+    constructor(address _feeToSetter, ISuperfluid _host) {
+        assert(address(_host) != address(0));
         feeToSetter = _feeToSetter;
-        _host = host;
+        host = _host;
 
         // deploy auction contract
         auction = new AqueductV1Auction();
@@ -44,11 +44,16 @@ contract AqueductV1Factory is IAqueductV1Factory {
         if (token0 == address(0)) revert FACTORY_ZERO_ADDRESS();
         if (getPair[token0][token1] != address(0)) revert FACTORY_PAIR_EXISTS(); // single check is sufficient
 
-        pair = address(new AqueductV1Pair{salt: keccak256(abi.encodePacked(token0, token1))}(_host));
-        IAqueductV1Pair(pair).initialize(ISuperToken(token0), ISuperToken(token1));
+        pair = address(new AqueductV1Pair{salt: keccak256(abi.encodePacked(token0, token1))}());
+        IAqueductV1Pair(pair).initialize(ISuperToken(token0), ISuperToken(token1), host);
         getPair[token0][token1] = pair;
         getPair[token1][token0] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
+
+        // register superapp
+        uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL;
+        host.registerAppByFactory(ISuperApp(pair), configWord);
+
         emit PairCreated(token0, token1, pair, allPairs.length);
     }
 

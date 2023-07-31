@@ -3,7 +3,7 @@ pragma solidity ^0.8.12;
 
 //solhint-disable func-name-mixedcase
 
-import {ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import {ISuperToken, ISuperfluid} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {IAqueductV1ERC20} from "./IAqueductV1ERC20.sol";
 
 interface IAqueductV1Pair is IAqueductV1ERC20 {
@@ -57,5 +57,5 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
 
     function sync() external;
 
-    function initialize(ISuperToken, ISuperToken) external;
+    function initialize(ISuperToken, ISuperToken, ISuperfluid) external;
 }
