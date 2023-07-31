@@ -630,13 +630,13 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
     /**
      * @notice Swap tokens for the desired amounts.
-     * @dev This low-level function should be called from a contract which performs important safety checks
+     * @dev This low-level function can only be called from the auction contract, which performs important safety checks
      * @param amount0Out The amount of token0 to be swapped.
      * @param amount1Out The amount of token1 to be swapped.
      * @param to The recipient address of the swapped tokens.
      */
     function swap(uint256 amount0Out, uint256 amount1Out, address to) external override lock {
-        if (msg.sender != address(IAqueductV1Factory(factory).auction())) revert PAIR_FORBIDDEN(); // TODO: is this a sufficient check?
+        if (msg.sender != address(IAqueductV1Factory(factory).auction())) revert PAIR_FORBIDDEN();
         if (amount0Out <= 0 && amount1Out <= 0) revert PAIR_INSUFFICIENT_OUTPUT_AMOUNT();
 
         uint256 amount0In;
@@ -677,26 +677,13 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             if (amount0In <= 0 && amount1In <= 0) revert PAIR_INSUFFICIENT_INPUT_AMOUNT();
 
             // check K
-            uint256 balance0Adjusted = balance0 * 1000 - amount0In * 3;
-            uint256 balance1Adjusted = balance1 * 1000 - amount1In * 3;
-            if (balance0Adjusted * balance1Adjusted < uint256(reserve0) * reserve1 * 1e6) revert PAIR_K();
+            if (balance0 * balance1 < uint256(reserve0) * reserve1) revert PAIR_K();
 
             uint32 time = uint32(block.timestamp % 2 ** 32); // TODO: loaded twice, need to optimize
             _updateReserves(balance0, balance1, time);
         }
 
         emit Swap(msg.sender, amount0In, amount1In, amount0Out, amount1Out, to);
-    }
-
-    /**
-     * @notice Rebalance the contract's token balance to match the reserves.
-     * @param to The recipient address to receive excess tokens.
-     */
-    function skim(address to) external override lock {
-        address _token0 = address(token0); // gas savings
-        address _token1 = address(token1); // gas savings
-        _safeTransfer(_token0, to, IERC20(_token0).balanceOf(address(this)) - _reserve0);
-        _safeTransfer(_token1, to, IERC20(_token1).balanceOf(address(this)) - _reserve1);
     }
 
     /**

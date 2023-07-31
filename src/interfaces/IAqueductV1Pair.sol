@@ -55,8 +55,6 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
 
     function swap(uint256 amount0Out, uint256 amount1Out, address to) external;
 
-    function skim(address to) external;
-
     function sync() external;
 
     function initialize(ISuperToken, ISuperToken) external;
