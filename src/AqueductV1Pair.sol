@@ -37,8 +37,6 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     uint112 private _reserve1; // uses single storage slot, accessible via getReserves
     uint32 private _blockTimestampLast; // uses single storage slot, accessible via getReserves
 
-    uint256 public override price0CumulativeLast;
-    uint256 public override price1CumulativeLast;
     uint256 public override kLast; // _reserve0 * _reserve1, as of immediately after the most recent liquidity event
 
     // for TWAP balance tracking (use _blockTimestampLast)
@@ -431,18 +429,6 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 totalFlow1,
         uint32 time
     ) private {
-        // TODO: optimize for gas (timeElapsed already calculated in swap() )
-        // TODO: are these cumulatives necessary? could you calculate TWAP with the twap cumulatives?
-        uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
-        unchecked {
-            uint32 timeElapsedSinceBlockTimestampLast = blockTimestamp - _blockTimestampLast; // overflow is desired
-            if (timeElapsedSinceBlockTimestampLast > 0 && reserve0 != 0 && reserve1 != 0) {
-                // * never overflows, and + overflow is desired
-                price0CumulativeLast += _getPriceCumlative(reserve1, reserve0, timeElapsedSinceBlockTimestampLast);
-                price1CumulativeLast += _getPriceCumlative(reserve0, reserve1, timeElapsedSinceBlockTimestampLast);
-            }
-        }
-
         // TODO: optimize
         uint32 timeElapsedSinceInputTime = time - _blockTimestampLast;
 
@@ -470,21 +456,6 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             uint112 streamedAmount1 = totalFlow1 > 0 ? totalFlow1 * timeElapsedSinceInputTime : 0;
             _totalSwappedFunds1 += streamedAmount1 + _reserve1 - reserve1;
         }
-    }
-
-    /**
-     * @notice Calculate the price cumulative between two reserves over a specific elapsed time.
-     * @param reserveNumerator The numerator of the price, represented by one of the reserves.
-     * @param reserveDenominator The denominator of the price, represented by the other reserve.
-     * @param timeElapsed The time duration over which the price cumulative is computed.
-     * @return priceCumulative The computed price cumulative over the provided time duration.
-     */
-    function _getPriceCumlative(
-        uint112 reserveNumerator,
-        uint112 reserveDenominator,
-        uint32 timeElapsed
-    ) internal pure returns (uint256 priceCumulative) {
-        priceCumulative = uint256(UQ112x112.encode(reserveNumerator).uqdiv(reserveDenominator)) * timeElapsed;
     }
 
     /**
@@ -785,7 +756,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             if (balance1 > 0) _safeTransfer(_token1, user, balance1);
             userStartingCumulatives1[user] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
-            _totalSwappedFunds1 -= uint112(balance1); // TODO: check downcast
+            _totalSwappedFunds1 -= uint112(balance1);
         } else if (address(_superToken) == _token1) {
             uint256 balance0 = UQ112x112.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[user])
@@ -799,8 +770,6 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // subtract locked funds that are not part of the reserves
         uint256 poolBalance0 = IERC20(_token0).balanceOf(address(this)) - _totalSwappedFunds0;
         uint256 poolBalance1 = IERC20(_token1).balanceOf(address(this)) - _totalSwappedFunds1;
-
-        // TODO: check K
 
         _updateReserves(poolBalance0, poolBalance1, time);
     }

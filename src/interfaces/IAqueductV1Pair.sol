@@ -43,9 +43,9 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
 
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 
-    function price0CumulativeLast() external view returns (uint256);
+    function twap0CumulativeLast() external view returns (uint256);
 
-    function price1CumulativeLast() external view returns (uint256);
+    function twap1CumulativeLast() external view returns (uint256);
 
     function kLast() external view returns (uint256);
 
