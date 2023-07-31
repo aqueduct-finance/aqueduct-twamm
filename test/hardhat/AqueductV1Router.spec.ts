@@ -138,18 +138,15 @@ describe("AqueductV1Router", () => {
         expect(await router.quote(BigNumber.from(2), BigNumber.from(200), BigNumber.from(100))).to.eq(
             BigNumber.from(1)
         );
-        await expect(router.quote(BigNumber.from(0), BigNumber.from(100), BigNumber.from(200))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_AMOUNT"
-        );
-        await expect(router.quote(BigNumber.from(1), BigNumber.from(0), BigNumber.from(200))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_LIQUIDITY"
-        );
-        await expect(router.quote(BigNumber.from(1), BigNumber.from(100), BigNumber.from(0))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_LIQUIDITY"
-        );
+        await expect(
+            router.quote(BigNumber.from(0), BigNumber.from(100), BigNumber.from(200))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_AMOUNT");
+        await expect(
+            router.quote(BigNumber.from(1), BigNumber.from(0), BigNumber.from(200))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_LIQUIDITY");
+        await expect(
+            router.quote(BigNumber.from(1), BigNumber.from(100), BigNumber.from(0))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_LIQUIDITY");
     });
 
     it("getAmountOut", async () => {
@@ -160,18 +157,13 @@ describe("AqueductV1Router", () => {
         );
         await expect(
             router.getAmountOut(BigNumber.from(0), BigNumber.from(100), BigNumber.from(100))
-        ).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_INPUT_AMOUNT"
-        );
-        await expect(router.getAmountOut(BigNumber.from(2), BigNumber.from(0), BigNumber.from(100))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_LIQUIDITY"
-        );
-        await expect(router.getAmountOut(BigNumber.from(2), BigNumber.from(100), BigNumber.from(0))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_LIQUIDITY"
-        );
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_INPUT_AMOUNT");
+        await expect(
+            router.getAmountOut(BigNumber.from(2), BigNumber.from(0), BigNumber.from(100))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_LIQUIDITY");
+        await expect(
+            router.getAmountOut(BigNumber.from(2), BigNumber.from(100), BigNumber.from(0))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_LIQUIDITY");
     });
 
     it("getAmountIn", async () => {
@@ -182,18 +174,13 @@ describe("AqueductV1Router", () => {
         );
         await expect(
             router.getAmountIn(BigNumber.from(0), BigNumber.from(100), BigNumber.from(100))
-        ).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_OUTPUT_AMOUNT"
-        );
-        await expect(router.getAmountIn(BigNumber.from(1), BigNumber.from(0), BigNumber.from(100))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_LIQUIDITY"
-        );
-        await expect(router.getAmountIn(BigNumber.from(1), BigNumber.from(100), BigNumber.from(0))).to.be.revertedWithCustomError(
-            router,
-            "LIBRARY_INSUFFICIENT_LIQUIDITY"
-        );
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_OUTPUT_AMOUNT");
+        await expect(
+            router.getAmountIn(BigNumber.from(1), BigNumber.from(0), BigNumber.from(100))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_LIQUIDITY");
+        await expect(
+            router.getAmountIn(BigNumber.from(1), BigNumber.from(100), BigNumber.from(0))
+        ).to.be.revertedWithCustomError(router, "LIBRARY_INSUFFICIENT_LIQUIDITY");
     });
 
     it("getAmountsOut", async () => {
@@ -286,8 +273,8 @@ describe("AqueductV1Router", () => {
 
         const token0Amount = expandTo18Decimals(1);
         const token1Amount = expandTo18Decimals(4);
-        await token0.transfer({ receiver: pair.address, amount: token0Amount, }).exec(wallet);
-        await token1.transfer({ receiver: pair.address, amount: token1Amount, }).exec(wallet);
+        await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+        await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
         await pair.mint(wallet.address);
 
         const expectedLiquidity = expandTo18Decimals(2);
@@ -319,8 +306,12 @@ describe("AqueductV1Router", () => {
         expect(await pair.balanceOf(wallet.address)).to.eq(0);
         const totalSupplyToken0 = BigNumber.from(await token0.totalSupply({ providerOrSigner: ethers.provider }));
         const totalSupplyToken1 = BigNumber.from(await token1.totalSupply({ providerOrSigner: ethers.provider }));
-        expect(await token0.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })).to.eq(totalSupplyToken0.sub(500));
-        expect(await token1.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })).to.eq(totalSupplyToken1.sub(2000));
+        expect(await token0.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })).to.eq(
+            totalSupplyToken0.sub(500)
+        );
+        expect(await token1.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })).to.eq(
+            totalSupplyToken1.sub(2000)
+        );
     });
 
     it("removeLiquidityWithPermit", async () => {
@@ -328,8 +319,8 @@ describe("AqueductV1Router", () => {
 
         const token0Amount = expandTo18Decimals(1);
         const token1Amount = expandTo18Decimals(4);
-        await token0.transfer({ receiver: pair.address, amount: token0Amount, }).exec(wallet);
-        await token1.transfer({ receiver: pair.address, amount: token1Amount, }).exec(wallet);
+        await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+        await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
         await pair.mint(wallet.address);
 
         const expectedLiquidity = expandTo18Decimals(2);
