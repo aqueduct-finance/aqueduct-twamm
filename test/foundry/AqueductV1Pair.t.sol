@@ -34,7 +34,7 @@ contract AqueductV1PairTest is AqueductTester {
     function test_initialize_RevertsIfFactoryIsNotSender() public {
         // Arrange & Act & Assert
         vm.expectRevert(IAqueductV1Pair.PAIR_FORBIDDEN.selector);
-        aqueductV1Pair.initialize(superTokenA, superTokenB);
+        aqueductV1Pair.initialize(superTokenA, superTokenB, sf.host);
     }
 }
 
