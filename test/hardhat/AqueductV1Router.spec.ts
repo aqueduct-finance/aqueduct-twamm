@@ -106,7 +106,7 @@ describe("AqueductV1Router", () => {
         await factoryV2.createPair(tokenA.address, tokenB.address);
         const pairAddress = await factoryV2.getPair(tokenA.address, tokenB.address);
         const pairFactory = await ethers.getContractFactory("AqueductV1Pair");
-        const pair = new Contract(pairAddress, pairFactory.interface, wallet) as UniswapV2Pair;
+        const pair = new Contract(pairAddress, pairFactory.interface, wallet) as AqueductV1Pair;
 
         const token0Address = await pair.token0();
         const token0 = tokenA.address === token0Address ? tokenA : tokenB;

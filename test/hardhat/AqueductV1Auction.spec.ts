@@ -94,7 +94,7 @@ before(async function () {
     await setupToken(baseTokenB, tokenB);
 });
 
-describe.skip("AqueductV1Auction", () => {
+describe("AqueductV1Auction", () => {
     async function fixture() {
         const [wallet, other] = await ethers.getSigners();
 

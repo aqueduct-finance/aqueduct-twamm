@@ -110,7 +110,7 @@ before(async function () {
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
 
-describe.skip("AqueductV1Pair", () => {
+describe("AqueductV1Pair", () => {
     async function fixture() {
         const [wallet, other] = await ethers.getSigners();
 
@@ -579,51 +579,6 @@ describe.skip("AqueductV1Pair", () => {
         expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY);
     });
 
-    it("price{0,1}CumulativeLast", async () => {
-        const { pair, wallet, token0, token1, auctionAddress, mockAuctionSigner } = await loadFixture(fixture);
-
-        const token0Amount = expandTo18Decimals(3);
-        const token1Amount = expandTo18Decimals(3);
-        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
-
-        const blockTimestamp = (await pair.getStaticReserves())[2];
-        await time.setNextBlockTimestamp(blockTimestamp + 1);
-        await pair.sync();
-
-        const initialPrice = encodePrice(token0Amount, token1Amount);
-        // expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0]);
-        // expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1]);
-        // expect((await pair.getStaticReserves())[2]).to.eq(blockTimestamp + 1);
-
-        const swapAmount = expandTo18Decimals(3);
-        await token0
-            .transfer({
-                receiver: pair.address,
-                amount: swapAmount,
-            })
-            .exec(wallet);
-        await time.setNextBlockTimestamp(blockTimestamp + 10);
-        // impersonate factory contract to bypass auction and call swap() directly
-        await network.provider.request({
-            method: "hardhat_impersonateAccount",
-            params: [auctionAddress],
-        });
-        // swap to a new price eagerly instead of syncing
-        await pair.connect(mockAuctionSigner).swap(0, expandTo18Decimals(1), wallet.address); // make the price nice
-
-        expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10));
-        expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10));
-        expect((await pair.getStaticReserves())[2]).to.eq(blockTimestamp + 10);
-
-        await time.setNextBlockTimestamp(blockTimestamp + 20);
-        await pair.sync();
-
-        const newPrice = encodePrice(expandTo18Decimals(6), expandTo18Decimals(2));
-        expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10).add(newPrice[0].mul(10)));
-        expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10).add(newPrice[1].mul(10)));
-        expect((await pair.getStaticReserves())[2]).to.eq(blockTimestamp + 20);
-    });
-
     it("feeTo:off", async () => {
         const { pair, wallet, token0, token1, auctionAddress, mockAuctionSigner } = await loadFixture(fixture);
 
@@ -927,6 +882,118 @@ describe.skip("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+        expect(
+            BigNumber.from(
+                await token0.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken0Balance.add(expectedAmountsOut.balance0));
+
+        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut.balance0).to.be.equal(BigNumber.from(0));
+    });
+
+    it("twap:retrieve_funds_token0", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // check initial reserves (shouldn't have changed)
+        let realTimeReserves = await pair.getReserves();
+        expect(realTimeReserves.reserve0).to.equal(token0Amount);
+        expect(realTimeReserves.reserve1).to.equal(token1Amount);
+
+        // create a stream
+        const flowRate = BigNumber.from("1000000000");
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        // skip ahead
+        await delay(600);
+
+        // check that correct swapped balance is withdrawn
+        const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance);
+        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        let nextBlockTime = latestTime + 10;
+        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+
+        // retrieve funds
+        await pair.retrieveFunds(token1.address);
+
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance.add(expectedAmountsOut.balance1));
+
+        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut.balance1).to.be.equal(BigNumber.from(0));
+    });
+
+    it("twap:retrieve_funds_token1", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // check initial reserves (shouldn't have changed)
+        let realTimeReserves = await pair.getReserves();
+        expect(realTimeReserves.reserve0).to.equal(token0Amount);
+        expect(realTimeReserves.reserve1).to.equal(token1Amount);
+
+        // create a stream
+        const flowRate = BigNumber.from("1000000000");
+        const createFlowOperation = token1.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        // skip ahead
+        await delay(600);
+
+        // check that correct swapped balance is withdrawn
+        const baseToken0Balance = expandTo18Decimals(10000).sub(token0Amount);
+        expect(
+            BigNumber.from(
+                await token0.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken0Balance);
+        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        let nextBlockTime = latestTime + 10;
+        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+        
+        // retrieve funds
+        await pair.retrieveFunds(token0.address);
+
         expect(
             BigNumber.from(
                 await token0.balanceOf({

@@ -24,6 +24,16 @@ contract AqueductV1Auction is IAqueductV1Auction {
         _;
     }
 
+    /**
+     * @dev Internal function to call swap() on the pair contract
+     * @param token The token to swap
+     * @param pair The address of the pair
+     * @param swapAmount The amount of token to be swapped
+     * @param reserve0 The reserves of token0, used to calculate amountOut
+     * @param reserve1 The reserves of token1, used to calculate amountOut
+     * @param token0 The address of token0
+     * @return amountOut The amount of the opposite token from the swap
+     */
     function swap(
         address token,
         address pair,
@@ -49,6 +59,14 @@ contract AqueductV1Auction is IAqueductV1Auction {
         }
     }
 
+    /**
+     * @notice Used to place a bid in the current auction
+     * @param token The token to swap
+     * @param pair The address of the pair
+     * @param bid The bid amount
+     * @param swapAmount The amount of token to be swapped
+     * @param deadline The unix timestamp that the transaction is valid up until
+     */
     function placeBid(
         address token,
         address pair,
@@ -113,6 +131,10 @@ contract AqueductV1Auction is IAqueductV1Auction {
         getAuction[pair] = auction;
     }
 
+    /**
+     * @notice Returns swapped funds to the winner and sends bid to the pair as reward to LPs
+     * @param pair The address of the pair
+     */
     function executeWinningBid(address pair) public {
         Auction memory auction = getAuction[pair];
         if (block.timestamp <= auction.lastAuctionTimestamp || auction.winningBid == 0)
@@ -135,19 +157,6 @@ contract AqueductV1Auction is IAqueductV1Auction {
         auction.winningBid = 0;
         auction.winningSwapAmount = 0;
         getAuction[pair] = auction;
-    }
-
-    /**
-     * @notice To be called from the pair contract in a superapp callback, prevents reverts
-     * reasoning: superfluid protocol will 'jail' a superapp if it reverts when a stream is updated/deleted, performs safety checks
-     * @param pair The address of the pair that the auction is for
-     */
-    function safeExecuteWinningBid(address pair) external {
-        Auction memory auction = getAuction[pair];
-
-        if (block.timestamp > auction.lastAuctionTimestamp && auction.winningBid > 0) {
-            executeWinningBid(pair);
-        }
     }
 
     function _safeTransfer(address token, address to, uint256 value) private {
