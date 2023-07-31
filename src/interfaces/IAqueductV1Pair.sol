@@ -3,7 +3,7 @@ pragma solidity ^0.8.12;
 
 //solhint-disable func-name-mixedcase
 
-import {ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import {ISuperToken, ISuperfluid} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {IAqueductV1ERC20} from "./IAqueductV1ERC20.sol";
 
 interface IAqueductV1Pair is IAqueductV1ERC20 {
@@ -43,9 +43,9 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
 
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 
-    function price0CumulativeLast() external view returns (uint256);
+    function twap0CumulativeLast() external view returns (uint256);
 
-    function price1CumulativeLast() external view returns (uint256);
+    function twap1CumulativeLast() external view returns (uint256);
 
     function kLast() external view returns (uint256);
 
@@ -53,11 +53,9 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
 
     function burn(address to) external returns (uint256 amount0, uint256 amount1);
 
-    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
-
-    function skim(address to) external;
+    function swap(uint256 amount0Out, uint256 amount1Out, address to) external;
 
     function sync() external;
 
-    function initialize(ISuperToken, ISuperToken) external;
+    function initialize(ISuperToken, ISuperToken, ISuperfluid) external;
 }

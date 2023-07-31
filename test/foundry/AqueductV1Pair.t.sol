@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.12;
 
+//solhint-disable no-global-import
+//solhint-disable no-console
+
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import {AqueductV1Pair} from "../../src/AqueductV1Pair.sol";
+import {IAqueductV1Pair} from "../../src/interfaces/IAqueductV1Pair.sol";
 import {AqueductV1Factory} from "../../src/AqueductV1Factory.sol";
+import {AqueductV1PairHarness} from "./utils/AqueductV1PairHarness.sol";
 
 import {AqueductTester} from "./utils/AqueductTester.sol";
 
@@ -18,12 +23,90 @@ contract AqueductV1PairTest is AqueductTester {
 
     function test_getReserves_ReturnsReserves() public {
         // Arrange & Act
-        (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) = aqueductV1Pair.getReserves();
+        (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) = aqueductV1Pair.getStaticReserves();
 
         // Assert
         assertEq(_reserve0, 0);
         assertEq(_reserve1, 0);
         assertEq(_blockTimestampLast, 0);
+    }
+
+    function test_initialize_RevertsIfFactoryIsNotSender() public {
+        // Arrange & Act & Assert
+        vm.expectRevert(IAqueductV1Pair.PAIR_FORBIDDEN.selector);
+        aqueductV1Pair.initialize(superTokenA, superTokenB, sf.host);
+    }
+}
+
+contract AqueductV1PairHarnessTest is AqueductTester {
+    constructor() AqueductTester() {}
+
+    function setUp() public {
+        aqueductV1Factory = new AqueductV1Factory(ADMIN, sf.host);
+        aqueductV1PairHarness = new AqueductV1PairHarness(sf.host);
+    }
+
+    function test_calculateFees_Basic() public {
+        // Arrange
+        uint112 totalFlow = 10000;
+        uint32 timeElapsed = 1;
+
+        // Act
+        uint112 calculatedFee = aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
+
+        // Assert
+        assertEq(calculatedFee, 30); // Expecting 0.3% of 10000, which is 30
+    }
+
+    function test_calculateFees_NoFlow() public {
+        // Arrange
+        uint112 totalFlow = 0;
+        uint32 timeElapsed = 100;
+
+        // Act
+        uint112 calculatedFee = aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
+
+        // Assert
+        assertEq(calculatedFee, 0);
+    }
+
+    function test_calculateFees_NoTimeElasped() public {
+        // Arrange
+        uint112 totalFlow = 10000;
+        uint32 timeElapsed = 0;
+
+        // Act
+        uint112 calculatedFee = aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
+
+        // Assert
+        assertEq(calculatedFee, 0);
+    }
+
+    function test_calculateFees_LongTime() public {
+        // Arrange
+        uint112 totalFlow = 10000;
+        uint32 timeElapsed = 100;
+
+        // Act
+        uint112 calculatedFee = aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
+
+        // Assert
+        assertEq(calculatedFee, 3000); // Expecting 0.3% of 10000 over 100 units of time, which is 3000
+    }
+
+    function testFuzz_calculateFees(uint112 totalFlow, uint32 timeElapsed) public {
+        // Arrange
+        vm.assume(timeElapsed < 1000000);
+        vm.assume(totalFlow < sf.cfa.MAXIMUM_FLOW_RATE());
+        uint112 TWAP_FEE = 30; // 0.3%
+
+        uint112 expectedFee = (totalFlow * timeElapsed * TWAP_FEE) / 10000;
+
+        // Act
+        uint112 calculatedFee = aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
+
+        // Assert
+        assertEq(calculatedFee, expectedFee);
     }
 }
 
@@ -81,7 +164,7 @@ contract AqueductV1PairIntegrationTest is AqueductTester {
             uint256 totalSupply = aqueductV1Pair.totalSupply();
             assertEq(totalSupply, expectedInitialLiquidity);
 
-            (uint112 _reserve0, uint112 _reserve1, uint time) = aqueductV1Pair.getRealTimeReserves();
+            (uint112 _reserve0, uint112 _reserve1, uint time) = aqueductV1Pair.getReserves();
             assertEq(_reserve0, superTokenAAmount);
             assertEq(_reserve1, superTokenBAmount);
             assertEq(time, block.timestamp);

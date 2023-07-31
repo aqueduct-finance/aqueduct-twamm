@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.12;
 
+import {IAqueductV1Auction} from "./IAqueductV1Auction.sol";
+
 interface IAqueductV1Factory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
 
@@ -8,6 +10,11 @@ interface IAqueductV1Factory {
     error FACTORY_ZERO_ADDRESS();
     error FACTORY_PAIR_EXISTS();
     error FACTORY_FORBIDDEN();
+    error AUCTION_ALREADY_EXECUTED();
+    error AUCTION_PAIR_DOESNT_EXIST();
+    error AUCTION_EXPIRED();
+    error AUCTION_INSUFFICIENT_BID();
+    error AUCTION_TRANSFER_FAILED();
 
     function feeTo() external view returns (address);
 
@@ -24,4 +31,6 @@ interface IAqueductV1Factory {
     function setFeeTo(address) external;
 
     function setFeeToSetter(address) external;
+
+    function auction() external view returns (IAqueductV1Auction);
 }

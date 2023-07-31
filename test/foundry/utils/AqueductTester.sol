@@ -4,6 +4,7 @@ pragma solidity ^0.8.12;
 import "forge-std/Test.sol";
 import {AqueductV1Pair} from "../../../src/AqueductV1Pair.sol";
 import {AqueductV1Factory} from "../../../src/AqueductV1Factory.sol";
+import {AqueductV1PairHarness} from "./AqueductV1PairHarness.sol";
 
 import {ISuperfluid} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 
@@ -22,6 +23,9 @@ contract AqueductTester is Test {
 
     AqueductV1Pair public aqueductV1Pair;
     AqueductV1Factory public aqueductV1Factory;
+
+    AqueductV1PairHarness public aqueductV1PairHarness;
+
     SuperfluidFrameworkDeployer.Framework internal sf;
     SuperfluidFrameworkDeployer internal deployer;
 
