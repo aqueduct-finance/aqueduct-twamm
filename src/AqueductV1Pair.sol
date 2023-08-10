@@ -187,7 +187,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return fees calculated fees.
      */
     function _calculateFees(uint112 totalFlow, uint32 timeElapsed) internal pure returns (uint112 fees) {
-        fees = (totalFlow * timeElapsed * TWAP_FEE) / 10000;
+        uint256 overflowResistantCalc = (uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000;
+        fees = uint112(overflowResistantCalc);
     }
 
     /**
@@ -202,7 +203,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 totalFlow,
         uint32 timeElapsed
     ) internal pure returns (uint112 reserveAmountSinceTime) {
-        reserveAmountSinceTime = (totalFlow * timeElapsed * (10000 - TWAP_FEE)) / 10000;
+        uint256 overflowResistantCalc = (uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000;
+        reserveAmountSinceTime = uint112(overflowResistantCalc);
     }
 
     /**
