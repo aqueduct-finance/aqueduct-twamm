@@ -96,7 +96,7 @@ before(async function () {
 
 describe("AqueductV1Auction", () => {
     async function fixture() {
-        const [wallet, other] = await ethers.getSigners();
+        const [wallet, other, attacker] = await ethers.getSigners();
 
         const factory = await (
             await ethers.getContractFactory("AqueductV1Factory")
@@ -126,7 +126,7 @@ describe("AqueductV1Auction", () => {
 
         const auction = (await ethers.getContractFactory("AqueductV1Auction")).attach(await factory.auction());
 
-        return { pair, token0, token1, wallet, other, factory, auction };
+        return { pair, token0, token1, wallet, other, factory, auction, attacker };
     }
 
     async function addLiquidity(
@@ -560,5 +560,78 @@ describe("AqueductV1Auction", () => {
             .withArgs(auction.address, pair.address, smallerBid.add(1))
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
             .withArgs(auction.address, other.address, "4540540540540540540");
+    });
+
+
+
+
+    /**************************************************************************
+     * tests below are related to exploits found in the first audit
+     *************************************************************************/
+
+    // added reentrancy lock to placeBid(), test that the exploit contract now fails
+    it("auction:reentrancy-hack", async () => {
+        const { factory, wallet, token0, auction, attacker } = await loadFixture(fixture);
+
+        const exploitToken = await (await ethers.getContractFactory("ExploitToken")).connect(attacker).deploy();
+        await factory.createPair(token0.address, exploitToken.address);
+        const pair = (await ethers.getContractFactory("AqueductV1Pair")).attach(
+            await factory.getPair(token0.address, exploitToken.address)
+        );
+
+        await exploitToken.connect(attacker).initialize(auction.address, pair.address);
+
+        const token0Amount = expandTo18Decimals(1000);
+        const token1Amount = expandTo18Decimals(1000);
+        const AucToken0Amount = expandTo18Decimals(100);
+        const AucToken1Amount = expandTo18Decimals(100);
+
+        await exploitToken.connect(wallet).mint(expandTo18Decimals(10000));
+        await exploitToken.connect(attacker).mint(expandTo18Decimals(10));
+
+        // add liquidity
+        await token0
+            .transfer({
+                receiver: pair.address,
+                amount: token0Amount,
+            })
+            .exec(wallet);
+        await exploitToken.connect(wallet).transfer(pair.address, token1Amount);
+        await pair.mint(wallet.address);
+
+        await exploitToken.connect(wallet).transfer(attacker.address, expandTo18Decimals(10));
+
+        // Imagine the auction contract is active
+        await token0.transfer({
+                receiver: auction.address,
+                amount: AucToken0Amount,
+            })
+            .exec(wallet);
+        
+        await exploitToken.connect(wallet).transfer(auction.address, AucToken1Amount);
+
+        // exploit
+        const swapExploitAmount = expandTo18Decimals(10); 
+        const bidExploitAmount = expandTo18Decimals(10000000); 
+
+        // without this transfer swap in placeBid() will fail
+        await exploitToken.connect(attacker).transfer(pair.address, swapExploitAmount);
+
+        // transfer helper will fail with AUCTION_LOCKED, but reverts with its own error message
+        await expect(auction.connect(attacker).placeBid(exploitToken.address, pair.address, bidExploitAmount, swapExploitAmount, ethers.constants.MaxUint256))
+            .to.be.revertedWithCustomError(auction, "TRANSFERHELPER_TRANSFER_FROM_FAILED");
+    });
+
+    // if the token is not in the pair, check for revert
+    it("auction:token-not-in-pair", async () => {
+        const { pair, wallet, token0, token1, auction, attacker } = await loadFixture(fixture);
+
+        // try to bid with malicious token that is not in the pair
+        const swapExploitAmount = expandTo18Decimals(10); 
+        const bidExploitAmount = expandTo18Decimals(10000000); 
+        const exploitToken = await (await ethers.getContractFactory("ExploitToken")).connect(attacker).deploy();
+
+        await expect(auction.connect(attacker).placeBid(exploitToken.address, pair.address, bidExploitAmount, swapExploitAmount, ethers.constants.MaxUint256))
+            .to.be.revertedWithCustomError(auction, "AUCTION_TOKEN_NOT_IN_PAIR");
     });
 });

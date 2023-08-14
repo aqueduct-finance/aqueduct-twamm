@@ -7,7 +7,8 @@ interface IAqueductV1Auction {
     error AUCTION_EXPIRED();
     error AUCTION_INSUFFICIENT_BID();
     error AUCTION_TRANSFER_FAILED();
-    error AUCTION_RETURN_FUNDS_FAILED(uint256, uint256);
+    error AUCTION_TOKEN_NOT_IN_PAIR();
+    error AUCTION_LOCKED();
 
     function placeBid(address token, address pair, uint256 bid, uint256 swapAmount, uint256 deadline) external;
 

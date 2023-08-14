@@ -24,6 +24,8 @@ contract AqueductV1Auction is IAqueductV1Auction {
         _;
     }
 
+    uint256 private unlocked = 1;
+
     /**
      * @dev Internal function to call swap() on the pair contract
      * @param token The token to swap
@@ -73,7 +75,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         uint256 bid,
         uint256 swapAmount,
         uint256 deadline
-    ) external ensure(deadline) {
+    ) external ensure(deadline) lock {
         Auction memory auction = getAuction[pair];
 
         if (block.timestamp > auction.lastAuctionTimestamp) {
@@ -88,6 +90,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
         address token0 = address(IAqueductV1Pair(pair).token0());
         address token1 = address(IAqueductV1Pair(pair).token1());
+        if (token != token0 && token != token1) revert AUCTION_TOKEN_NOT_IN_PAIR();
 
         // return old winner's funds
         (uint112 reserve0, uint112 reserve1, ) = IAqueductV1Pair(pair).getReserves();
@@ -162,5 +165,13 @@ contract AqueductV1Auction is IAqueductV1Auction {
     function _safeTransfer(address token, address to, uint256 value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
         if (!success && (data.length != 0 || !abi.decode(data, (bool)))) revert AUCTION_TRANSFER_FAILED();
+    }
+
+    // used to prevent reentrancy
+    modifier lock() {
+        if (unlocked != 1) revert AUCTION_LOCKED();
+        unlocked = 0;
+        _;
+        unlocked = 1;
     }
 }
