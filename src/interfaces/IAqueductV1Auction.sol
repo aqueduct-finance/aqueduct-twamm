@@ -9,6 +9,9 @@ interface IAqueductV1Auction {
     error AUCTION_TRANSFER_FAILED();
     error AUCTION_TOKEN_NOT_IN_PAIR();
     error AUCTION_LOCKED();
+    error AUCTION_INVALID_PAIR();
+
+    function factory() external view returns (address);
 
     function placeBid(address token, address pair, uint256 bid, uint256 swapAmount, uint256 deadline) external;
 

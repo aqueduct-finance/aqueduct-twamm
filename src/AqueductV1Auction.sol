@@ -2,6 +2,7 @@
 pragma solidity ^0.8.12;
 
 import {IAqueductV1Auction} from "./interfaces/IAqueductV1Auction.sol";
+import {IAqueductV1Factory} from "./interfaces/IAqueductV1Factory.sol";
 import {AqueductV1Pair} from "./AqueductV1Pair.sol";
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {ISuperfluid, ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -25,6 +26,12 @@ contract AqueductV1Auction is IAqueductV1Auction {
     }
 
     uint256 private unlocked = 1;
+
+    address public override factory;
+
+    constructor() {
+        factory = msg.sender;
+    }
 
     /**
      * @dev Internal function to call swap() on the pair contract
@@ -90,6 +97,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
         address token0 = address(IAqueductV1Pair(pair).token0());
         address token1 = address(IAqueductV1Pair(pair).token1());
+        if (IAqueductV1Factory(factory).getPair(token0, token1) != address(this)) revert AUCTION_INVALID_PAIR();
         if (token != token0 && token != token1) revert AUCTION_TOKEN_NOT_IN_PAIR();
 
         // return old winner's funds

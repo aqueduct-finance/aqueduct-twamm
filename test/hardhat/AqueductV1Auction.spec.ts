@@ -562,13 +562,11 @@ describe("AqueductV1Auction", () => {
             .withArgs(auction.address, other.address, "4540540540540540540");
     });
 
-
-
-
     /**************************************************************************
      * tests below are related to exploits found in the first audit
      *************************************************************************/
 
+    // issue: Reentrancy with a fake token in AqueductV1Auction | critical | (test #1)
     // added reentrancy lock to placeBid(), test that the exploit contract now fails
     it("auction:reentrancy-hack", async () => {
         const { factory, wallet, token0, auction, attacker } = await loadFixture(fixture);
@@ -602,36 +600,100 @@ describe("AqueductV1Auction", () => {
         await exploitToken.connect(wallet).transfer(attacker.address, expandTo18Decimals(10));
 
         // Imagine the auction contract is active
-        await token0.transfer({
+        await token0
+            .transfer({
                 receiver: auction.address,
                 amount: AucToken0Amount,
             })
             .exec(wallet);
-        
+
         await exploitToken.connect(wallet).transfer(auction.address, AucToken1Amount);
 
         // exploit
-        const swapExploitAmount = expandTo18Decimals(10); 
-        const bidExploitAmount = expandTo18Decimals(10000000); 
+        const swapExploitAmount = expandTo18Decimals(10);
+        const bidExploitAmount = expandTo18Decimals(10000000);
 
         // without this transfer swap in placeBid() will fail
         await exploitToken.connect(attacker).transfer(pair.address, swapExploitAmount);
 
         // transfer helper will fail with AUCTION_LOCKED, but reverts with its own error message
-        await expect(auction.connect(attacker).placeBid(exploitToken.address, pair.address, bidExploitAmount, swapExploitAmount, ethers.constants.MaxUint256))
-            .to.be.revertedWithCustomError(auction, "TRANSFERHELPER_TRANSFER_FROM_FAILED");
+        await expect(
+            auction
+                .connect(attacker)
+                .placeBid(
+                    exploitToken.address,
+                    pair.address,
+                    bidExploitAmount,
+                    swapExploitAmount,
+                    ethers.constants.MaxUint256
+                )
+        ).to.be.revertedWithCustomError(auction, "TRANSFERHELPER_TRANSFER_FROM_FAILED");
     });
 
+    // issue: Reentrancy with a fake token in AqueductV1Auction | critical | (test #2)
     // if the token is not in the pair, check for revert
     it("auction:token-not-in-pair", async () => {
         const { pair, wallet, token0, token1, auction, attacker } = await loadFixture(fixture);
 
         // try to bid with malicious token that is not in the pair
-        const swapExploitAmount = expandTo18Decimals(10); 
-        const bidExploitAmount = expandTo18Decimals(10000000); 
+        const swapExploitAmount = expandTo18Decimals(10);
+        const bidExploitAmount = expandTo18Decimals(10000000);
         const exploitToken = await (await ethers.getContractFactory("ExploitToken")).connect(attacker).deploy();
 
-        await expect(auction.connect(attacker).placeBid(exploitToken.address, pair.address, bidExploitAmount, swapExploitAmount, ethers.constants.MaxUint256))
-            .to.be.revertedWithCustomError(auction, "AUCTION_TOKEN_NOT_IN_PAIR");
+        await expect(
+            auction
+                .connect(attacker)
+                .placeBid(
+                    exploitToken.address,
+                    pair.address,
+                    bidExploitAmount,
+                    swapExploitAmount,
+                    ethers.constants.MaxUint256
+                )
+        ).to.be.revertedWithCustomError(auction, "AUCTION_TOKEN_NOT_IN_PAIR");
+    });
+
+    // issue: Possibility of stealing funds by using a malicious pair contract | critical
+    // auction.placeBid() should revert if the pair contract is invalid (not deployed by the factory)
+    it("auction:hack-with-custom-pair", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+        const hacker = other;
+        const token0Amount = expandTo18Decimals(1000);
+        const token1Amount = expandTo18Decimals(1000);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        const bid = expandTo18Decimals(10);
+        const swapAmount = expandTo18Decimals(100);
+        let reserves = await pair.getReserves();
+
+        const poc = await (await ethers.getContractFactory("ExploitPair"))
+            .connect(hacker)
+            .deploy(token0.address, token1.address, auction.address, reserves.reserve0, reserves.reserve1);
+
+        await token0
+            .transfer({
+                receiver: poc.address,
+                amount: bid.add(swapAmount),
+            })
+            .exec(wallet);
+
+        await token0
+            .approve({
+                from: hacker.address,
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+
+        // user places bid
+        console.log("\nUser calls placeBid");
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+
+        await expect(auction.placeBid(token0.address, pair.address, bid, swapAmount, ethers.constants.MaxUint256)).to.be.revertedWithCustomError(auction, "AUCTION_INVALID_PAIR");
     });
 });
