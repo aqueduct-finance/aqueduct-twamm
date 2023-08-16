@@ -13,6 +13,7 @@ import {AqueductV1PairHarness} from "./utils/AqueductV1PairHarness.sol";
 
 import {AqueductTester} from "./utils/AqueductTester.sol";
 import {Math} from "../../src/libraries/Math.sol";
+import {UQ112x112} from "../../src/libraries/UQ112x112.sol";
 
 import "forge-std/console2.sol";
 
@@ -26,6 +27,8 @@ contract AqueductV1PairTest is AqueductTester {
 }
 
 contract AqueductV1PairHarnessTest is AqueductTester {
+    using UQ112x112 for uint224;
+
     constructor() AqueductTester() {}
 
     function setUp() public {
@@ -128,5 +131,65 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         // // Assert
         // assertEq(resultReserve0, expectedReserve0);
         // assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function test_getTwapCumulative_ZeroTime() public {
+        // Arrange
+        uint112 newReserve = 2 * 10 ** 18;
+        uint112 storedReserve = 1 * 10 ** 18;
+        uint112 totalFlow = 1 * 10 ** 18;
+        uint112 totalFlowDenominator = 1 * 10 ** 18;
+        uint32 timeElapsed = 0;
+
+        // uint256 expectedTwapCumulative = uint256(
+        //     UQ112x112.encode((totalFlow * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator)
+        // );
+
+        // Act
+        vm.expectRevert();
+        uint256 twapCumulative = aqueductV1PairHarness.exposed_getTwapCumulative(
+            newReserve,
+            storedReserve,
+            totalFlow,
+            totalFlowDenominator,
+            timeElapsed
+        );
+
+        // Assert
+        // assertEq(twapCumulative, expectedTwapCumulative);
+    }
+
+    // uint112 newReserve,
+    // uint112 storedReserve,
+    // uint112 totalFlow,
+    // uint112 totalFlowDenominator,
+    // uint32 timeElapsed
+    function testFuzz_getTwapCumulative() public {
+        // uint32 oneYear = 31560000;
+        // vm.assume(timeElapsed < oneYear);
+        // vm.assume(timeElapsed > 0);
+        // vm.assume(totalFlowDenominator > 0);
+        uint112 newReserve = 10271;
+        uint112 storedReserve = 17630;
+        uint112 totalFlow = 1028795707727257197065343753370136;
+        uint112 totalFlowDenominator = 21444;
+        uint32 timeElapsed = 33024;
+
+        // uint256 expectedTwapCumulative = uint256(
+        //     UQ112x112.encode((totalFlow * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator)
+        // );
+
+        // Act
+        vm.expectRevert();
+        uint256 result = aqueductV1PairHarness.exposed_getTwapCumulative(
+            newReserve,
+            storedReserve,
+            totalFlow,
+            totalFlowDenominator,
+            timeElapsed
+        );
+
+        // Assert
+        // assertEq(result, expectedTwapCumulative);
     }
 }

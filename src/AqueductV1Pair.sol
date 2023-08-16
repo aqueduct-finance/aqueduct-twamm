@@ -466,7 +466,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 totalFlow,
         uint112 totalFlowDenominator,
         uint32 timeElapsed
-    ) private pure returns (uint256 twapCumulative) {
+    ) internal pure returns (uint256 twapCumulative) {
         twapCumulative = uint256(
             UQ112x112.encode((totalFlow * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator)
         );
