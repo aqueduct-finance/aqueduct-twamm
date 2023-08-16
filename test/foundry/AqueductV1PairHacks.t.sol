@@ -17,7 +17,7 @@ import {UQ112x112} from "../../src/libraries/UQ112x112.sol";
 
 import "forge-std/console2.sol";
 
-contract AqueductV1PairTest is AqueductTester {
+contract AqueductV1PairHacks is AqueductTester {
     constructor() AqueductTester() {}
 
     function setUp() public {
