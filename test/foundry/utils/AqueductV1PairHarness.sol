@@ -28,4 +28,22 @@ contract AqueductV1PairHarness is AqueductV1Pair {
     ) external pure returns (uint112, uint112) {
         return _calculateReservesBothFlows(_kLast, totalFlow0, totalFlow1, timeElapsed, _reserve0, _reserve1);
     }
+
+    function exposed_calculateReservesFlow0(
+        uint256 _kLast,
+        uint112 totalFlow0,
+        uint32 timeElapsed,
+        uint112 _reserve0
+    ) external pure returns (uint112 reserve0, uint112 reserve1) {
+        return _calculateReservesFlow0(_kLast, totalFlow0, timeElapsed, _reserve0);
+    }
+
+    function exposed_calculateReservesFlow1(
+        uint256 _kLast,
+        uint112 totalFlow1,
+        uint32 timeElapsed,
+        uint112 _reserve1
+    ) external pure returns (uint112 reserve0, uint112 reserve1) {
+        return _calculateReservesFlow1(_kLast, totalFlow1, timeElapsed, _reserve1);
+    }
 }

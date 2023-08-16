@@ -103,7 +103,6 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         // Arrange
         uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE());
         uint32 timeElapsed = type(uint32).max;
-        uint112 TWAP_FEE = 30; // 0.3%
 
         uint112 expectedFee = uint112((uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000);
 
@@ -117,7 +116,6 @@ contract AqueductV1PairHarnessTest is AqueductTester {
     function testFuzz_calculateFees(uint112 totalFlow, uint32 timeElapsed) public {
         // Arrange
         vm.assume(totalFlow < sf.cfa.MAXIMUM_FLOW_RATE());
-        uint112 TWAP_FEE = 30; // 0.3%
 
         uint112 expectedFee = uint112((uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000);
 
@@ -132,7 +130,6 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         // Arrange
         uint112 totalFlow = 10000;
         uint32 timeElapsed = 12;
-        uint112 TWAP_FEE = 30; // 0.3%
         uint112 expectedReserve = (totalFlow * timeElapsed * (10000 - TWAP_FEE)) / 10000;
 
         // Act
@@ -170,7 +167,6 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         // Arrange
         uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE());
         uint32 timeElapsed = type(uint32).max;
-        uint112 TWAP_FEE = 30; // 0.3%
 
         uint112 expectedReserveAmount = uint112((uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000);
 
@@ -184,7 +180,6 @@ contract AqueductV1PairHarnessTest is AqueductTester {
     function testFuzz_calculateReserveAmountSinceTime(uint112 totalFlow, uint32 timeElapsed) public {
         // Arrange
         vm.assume(totalFlow < (sf.cfa.MAXIMUM_FLOW_RATE()));
-        uint112 TWAP_FEE = 30; // 0.3%
 
         uint112 expectedReserveAmount = uint112((uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000);
 
@@ -203,8 +198,6 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         uint32 timeElapsed = 12;
         uint112 reserve0 = 1 * 10 ** 18;
         uint112 reserve1 = 1 * 10 ** 18;
-
-        uint112 TWAP_FEE = 30; // 0.3%
 
         uint112 expectedReserveSinceTime0 = (totalFlow0 * timeElapsed * (10000 - TWAP_FEE)) / 10000;
         uint112 expectedReserveSinceTime1 = aqueductV1PairHarness.exposed_calculateReserveAmountSinceTime(
@@ -272,6 +265,154 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         // Assert
         assertEq(reserve0, _reserve0); // Assuming when no time has elapsed, reserve remains same.
         assertEq(reserve1, _reserve1);
+    }
+
+    function test_calculateReservesFlow0_Basic() public {
+        // Arrange
+        uint256 kLast = 1 * 10 ** 36;
+        uint112 totalFlow0 = 1 * 10 ** 18;
+        uint32 timeElapsed = 12;
+        uint112 reserve0 = 1 * 10 ** 18;
+
+        // This is the expected result of _calculateReserveAmountSinceTime with the given values
+        uint112 expectedReserveAmountSinceTime0 = 11964000000000000000; // ((1 * 10 ** 18) * 12 * (10000 - 30)) / 10000
+
+        uint112 expectedReserve0 = reserve0 + expectedReserveAmountSinceTime0;
+        uint112 expectedReserve1 = uint112(kLast / expectedReserve0);
+
+        // Act
+        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow0(
+            kLast,
+            totalFlow0,
+            timeElapsed,
+            reserve0
+        );
+
+        // Assert
+        assertEq(resultReserve0, expectedReserve0);
+        assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function test_calculateReservesFlow0_NoFlow() public {
+        // Arrange
+        uint256 kLast = 1 * 10 ** 36;
+        uint112 totalFlow0 = 0;
+        uint32 timeElapsed = 12;
+        uint112 reserve0 = 1 * 10 ** 18;
+
+        // The expected result of _calculateReserveAmountSinceTime with the given values is 0
+        uint112 expectedReserve0 = reserve0; // No change
+        uint112 expectedReserve1 = uint112(kLast / expectedReserve0);
+
+        // Act
+        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow0(
+            kLast,
+            totalFlow0,
+            timeElapsed,
+            reserve0
+        );
+
+        // Assert
+        assertEq(resultReserve0, expectedReserve0);
+        assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function test_calculateReservesFlow0_NoElapsedTime() public {
+        // Arrange
+        uint256 kLast = 1 * 10 ** 36;
+        uint112 totalFlow0 = 1 * 10 ** 18;
+        uint32 timeElapsed = 0;
+        uint112 reserve0 = 1 * 10 ** 18;
+
+        // The expected result of _calculateReserveAmountSinceTime with the given values is 0
+        uint112 expectedReserve0 = reserve0; // No change
+        uint112 expectedReserve1 = uint112(kLast / expectedReserve0);
+
+        // Act
+        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow0(
+            kLast,
+            totalFlow0,
+            timeElapsed,
+            reserve0
+        );
+
+        // Assert
+        assertEq(resultReserve0, expectedReserve0);
+        assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function test_calculateReservesFlow1_Basic() public {
+        // Arrange
+        uint256 kLast = 1 * 10 ** 36;
+        uint112 totalFlow1 = 1 * 10 ** 18;
+        uint32 timeElapsed = 12;
+        uint112 reserve1 = 1 * 10 ** 18;
+
+        // This is the expected result of _calculateReserveAmountSinceTime with the given values
+        uint112 expectedReserveAmountSinceTime1 = 11964000000000000000; // ((1 * 10 ** 18) * 12 * (10000 - 30)) / 10000
+
+        uint112 expectedReserve1 = reserve1 + expectedReserveAmountSinceTime1;
+        uint112 expectedReserve0 = uint112(kLast / expectedReserve1);
+
+        // Act
+        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow1(
+            kLast,
+            totalFlow1,
+            timeElapsed,
+            reserve1
+        );
+
+        // Assert
+        assertEq(resultReserve0, expectedReserve0);
+        assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function test_calculateReservesFlow1_NoFlow() public {
+        // Arrange
+        uint256 kLast = 1 * 10 ** 36;
+        uint112 totalFlow1 = 0;
+        uint32 timeElapsed = 12;
+        uint112 reserve1 = 1 * 10 ** 18;
+
+        // The expected result of _calculateReserveAmountSinceTime with the given values is 0
+        uint112 expectedReserve1 = reserve1; // No change
+        uint112 expectedReserve0 = uint112(kLast / expectedReserve1);
+
+        // Act
+        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow1(
+            kLast,
+            totalFlow1,
+            timeElapsed,
+            reserve1
+        );
+
+        // Assert
+        assertEq(resultReserve0, expectedReserve0);
+        assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function test_calculateReservesFlow1_NoElapsedTime() public {
+        // Arrange
+        uint256 kLast = 1 * 10 ** 36;
+        uint112 totalFlow1 = 1 * 10 ** 18;
+        uint32 timeElapsed = 0;
+        uint112 reserve1 = 1 * 10 ** 18;
+
+        // The expected result of _calculateReserveAmountSinceTime with the given values is 0
+        uint112 expectedReserve1 = reserve1; // No change
+        uint112 expectedReserve0 = uint112(kLast / expectedReserve1);
+
+        // Act
+        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow1(
+            kLast,
+            totalFlow1,
+            timeElapsed,
+            reserve1
+        );
+
+        // Assert
+        assertEq(resultReserve0, expectedReserve0);
+        assertEq(resultReserve1, expectedReserve1);
     }
 }
 

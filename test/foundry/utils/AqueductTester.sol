@@ -50,6 +50,8 @@ contract AqueductTester is Test {
 
     address[] internal testAccounts = [ADMIN, ALICE, BOB, CAROL, DAN, EVE, FRANK, GRACE, HEIDI, IVAN];
 
+    uint112 internal immutable TWAP_FEE = 30; // 0.3%
+
     constructor() {
         vm.etch(ERC1820RegistryCompiled.at, ERC1820RegistryCompiled.bin);
         deployer = new SuperfluidFrameworkDeployer();
