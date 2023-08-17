@@ -665,7 +665,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             userStartingCumulatives1[msg.sender] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
             _totalSwappedFunds1 -= uint112(returnedBalance);
-        } else if (address(_superToken) == _token0) {
+        } else {
             (, int96 flow1, , ) = cfa.getFlow(token1, msg.sender, address(this));
             returnedBalance = UQ112x112.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
@@ -790,7 +790,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             userStartingCumulatives1[user] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
             _totalSwappedFunds1 -= uint112(balance1);
-        } else if (address(_superToken) == _token1) {
+        } else {
             uint256 balance0 = UQ112x112.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[user])
             );
