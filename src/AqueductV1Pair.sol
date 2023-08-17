@@ -3,7 +3,6 @@ pragma solidity ^0.8.12;
 
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {IAqueductV1Factory} from "./interfaces/IAqueductV1Factory.sol";
-import {IAqueductV1Callee} from "./interfaces/IAqueductV1Callee.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 import {ISuperfluid, ISuperToken, ISuperfluidToken, ISuperApp, ISuperAgreement, SuperAppDefinitions} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {IConstantFlowAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
