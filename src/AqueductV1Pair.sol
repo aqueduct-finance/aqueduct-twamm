@@ -29,7 +29,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     uint256 public constant override MINIMUM_LIQUIDITY = 10 ** 3;
     uint112 public constant TWAP_FEE = 30; // basis points
 
-    address public override factory;
+    address public override immutable factory;
     ISuperToken public override token0;
     ISuperToken public override token1;
 
