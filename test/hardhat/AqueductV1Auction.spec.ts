@@ -686,7 +686,6 @@ describe("AqueductV1Auction", () => {
             .exec(wallet);
 
         // user places bid
-        console.log("\nUser calls placeBid");
         await token0
             .approve({
                 receiver: auction.address,
@@ -694,6 +693,9 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
 
-        await expect(auction.placeBid(token0.address, pair.address, bid, swapAmount, ethers.constants.MaxUint256)).to.be.revertedWithCustomError(auction, "AUCTION_INVALID_PAIR");
+        await auction.placeBid(token0.address, pair.address, bid, swapAmount, ethers.constants.MaxUint256);
+
+        // attacker places bid with custom pair contract
+        await expect(poc.connect(hacker).attackPlaceBid(bid, swapAmount)).to.be.revertedWithCustomError(auction, "AUCTION_INVALID_PAIR");
     });
 });

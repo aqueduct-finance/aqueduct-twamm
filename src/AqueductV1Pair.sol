@@ -597,20 +597,13 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint256 amount0In;
         uint256 amount1In;
         {
+            /*
             uint256 balance0;
             uint256 balance1;
             uint112 reserve0;
             uint112 reserve1;
             uint32 time;
             {
-                // scope for _token{0,1}, avoids stack too deep errors
-                address _token0 = address(token0);
-                address _token1 = address(token1);
-                if (to == _token0 || to == _token1) revert PAIR_INVALID_TO();
-                if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
-                if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-                //if (data.length > 0) IAqueductV1Callee(to).aqueductV1Call(msg.sender, amount0Out, amount1Out, data);
-
                 // group real-time read operations for gas savings
                 uint112 totalFlow0;
                 uint112 totalFlow1;
@@ -618,13 +611,48 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 (reserve0, reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
                 _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
 
+                if (amount0Out >= reserve0 || amount1Out >= reserve1) revert PAIR_INSUFFICIENT_LIQUIDITY();
+
+                // scope for _token{0,1}, avoids stack too deep errors
+                address _token0 = address(token0);
+                address _token1 = address(token1);
+                if (to == _token0 || to == _token1) revert PAIR_INVALID_TO();
+                if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
+                if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
+
                 // calculate balances without locked swaps
                 // subtract locked funds that are not part of the reserves
                 balance0 = IERC20(_token0).balanceOf(address(this)) - _totalSwappedFunds0;
                 balance1 = IERC20(_token1).balanceOf(address(this)) - _totalSwappedFunds1;
             }
+            */
+
+            
+            uint32 time;
+            uint112 reserve0;
+            uint112 reserve1;
+            {
+                // group real-time read operations for gas savings
+                uint112 totalFlow0;
+                uint112 totalFlow1;
+                (totalFlow0, totalFlow1, time) = getRealTimeIncomingFlowRates();
+                (reserve0, reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
+                _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
+            }
 
             if (amount0Out >= reserve0 || amount1Out >= reserve1) revert PAIR_INSUFFICIENT_LIQUIDITY();
+
+            // scope for _token{0,1}, avoids stack too deep errors
+            address _token0 = address(token0);
+            address _token1 = address(token1);
+            if (to == _token0 || to == _token1) revert PAIR_INVALID_TO();
+            if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
+            if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
+
+            // calculate balances without locked swaps
+            // subtract locked funds that are not part of the reserves
+            uint256 balance0 = IERC20(_token0).balanceOf(address(this)) - _totalSwappedFunds0;
+            uint256 balance1 = IERC20(_token1).balanceOf(address(this)) - _totalSwappedFunds1;
 
             // calculate input amounts (input agnostic)
             amount0In = balance0 > reserve0 - amount0Out ? balance0 - (reserve0 - amount0Out) : 0;

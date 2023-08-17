@@ -97,7 +97,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
         address token0 = address(IAqueductV1Pair(pair).token0());
         address token1 = address(IAqueductV1Pair(pair).token1());
-        if (IAqueductV1Factory(factory).getPair(token0, token1) != address(this)) revert AUCTION_INVALID_PAIR();
+        if (IAqueductV1Factory(factory).getPair(token0, token1) != pair) revert AUCTION_INVALID_PAIR();
         if (token != token0 && token != token1) revert AUCTION_TOKEN_NOT_IN_PAIR();
 
         // return old winner's funds
