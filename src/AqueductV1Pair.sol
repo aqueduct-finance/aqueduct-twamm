@@ -212,8 +212,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @param totalFlow0 Total flow of token0.
      * @param totalFlow1 Total flow of token1.
      * @param timeElapsed Time elapsed since the last update.
-     * @param _reserve0 The current reserve of token0.
-     * @param _reserve1 The current reserve of token1.
+     * @param currentReserve0 The current reserve of token0.
+     * @param currentReserve1 The current reserve of token1.
      * @return reserve0 The calculated reserve of token0.
      * @return reserve1 The calculated reserve of token1.
      */
@@ -222,14 +222,14 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 totalFlow0,
         uint112 totalFlow1,
         uint32 timeElapsed,
-        uint112 _reserve0,
-        uint112 _reserve1
+        uint112 currentReserve0,
+        uint112 currentReserve1
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
         // use approximation:
         uint112 reserveAmountSinceTime0 = _calculateReserveAmountSinceTime(totalFlow0, timeElapsed);
         uint112 reserveAmountSinceTime1 = _calculateReserveAmountSinceTime(totalFlow1, timeElapsed);
         reserve0 = uint112(
-            Math.sqrt((_kLast * (_reserve0 + reserveAmountSinceTime0)) / (_reserve1 + reserveAmountSinceTime1))
+            Math.sqrt((_kLast * (currentReserve0 + reserveAmountSinceTime0)) / (currentReserve1 + reserveAmountSinceTime1))
         );
         reserve1 = uint112(_kLast / reserve0);
     }
@@ -242,7 +242,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @param _kLast The previous product of the reserves (_reserve0 * _reserve1).
      * @param totalFlow0 Total flow of token0.
      * @param timeElapsed Time elapsed since the last update.
-     * @param _reserve0 The current reserve of token0.
+     * @param currentReserve0 The current reserve of token0.
      * @return reserve0 The calculated reserve of token0.
      * @return reserve1 The calculated reserve of token1.
      */
@@ -250,11 +250,11 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint256 _kLast,
         uint112 totalFlow0,
         uint32 timeElapsed,
-        uint112 _reserve0
+        uint112 currentReserve0
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
         // use x * y = k
         uint112 reserveAmountSinceTime0 = _calculateReserveAmountSinceTime(totalFlow0, timeElapsed);
-        reserve0 = _reserve0 + reserveAmountSinceTime0;
+        reserve0 = currentReserve0 + reserveAmountSinceTime0;
         reserve1 = uint112(_kLast / reserve0); // should be a safe downcast
     }
 
@@ -266,7 +266,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @param _kLast The previous product of the reserves (_reserve0 * _reserve1).
      * @param totalFlow1 Total flow of token1.
      * @param timeElapsed Time elapsed since the last update.
-     * @param _reserve1 The current reserve of token1.
+     * @param currentReserve1 The current reserve of token1.
      * @return reserve0 The calculated reserve of token0.
      * @return reserve1 The calculated reserve of token1.
      */
@@ -274,11 +274,11 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint256 _kLast,
         uint112 totalFlow1,
         uint32 timeElapsed,
-        uint112 _reserve1
+        uint112 currentReserve1
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
         // use x * y = k
         uint112 reserveAmountSinceTime1 = _calculateReserveAmountSinceTime(totalFlow1, timeElapsed);
-        reserve1 = _reserve1 + reserveAmountSinceTime1;
+        reserve1 = currentReserve1 + reserveAmountSinceTime1;
         reserve0 = uint112(_kLast / reserve1); // should be a safe downcast
     }
 
