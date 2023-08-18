@@ -696,6 +696,9 @@ describe("AqueductV1Auction", () => {
         await auction.placeBid(token0.address, pair.address, bid, swapAmount, ethers.constants.MaxUint256);
 
         // attacker places bid with custom pair contract
-        await expect(poc.connect(hacker).attackPlaceBid(bid, swapAmount)).to.be.revertedWithCustomError(auction, "AUCTION_INVALID_PAIR");
+        await expect(poc.connect(hacker).attackPlaceBid(bid, swapAmount)).to.be.revertedWithCustomError(
+            auction,
+            "AUCTION_INVALID_PAIR"
+        );
     });
 });
