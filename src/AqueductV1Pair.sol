@@ -28,7 +28,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     uint256 public constant override MINIMUM_LIQUIDITY = 10 ** 3;
     uint112 public constant TWAP_FEE = 30; // basis points
 
-    address public override immutable factory;
+    address public immutable override factory;
     ISuperToken public override token0;
     ISuperToken public override token1;
 
@@ -228,7 +228,9 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 reserveAmountSinceTime0 = _calculateReserveAmountSinceTime(totalFlow0, timeElapsed);
         uint112 reserveAmountSinceTime1 = _calculateReserveAmountSinceTime(totalFlow1, timeElapsed);
         reserve0 = uint112(
-            Math.sqrt((_kLast * (currentReserve0 + reserveAmountSinceTime0)) / (currentReserve1 + reserveAmountSinceTime1))
+            Math.sqrt(
+                (_kLast * (currentReserve0 + reserveAmountSinceTime0)) / (currentReserve1 + reserveAmountSinceTime1)
+            )
         );
         reserve1 = uint112(_kLast / reserve0);
     }

@@ -22,7 +22,7 @@ contract AqueductV1Factory is IAqueductV1Factory {
     ISuperfluid immutable host;
 
     // auction
-    IAqueductV1Auction public override immutable auction;
+    IAqueductV1Auction public immutable override auction;
 
     constructor(address _feeToSetter, ISuperfluid _host) {
         assert(address(_host) != address(0));
