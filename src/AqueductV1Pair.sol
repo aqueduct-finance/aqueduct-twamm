@@ -8,6 +8,7 @@ import {ISuperfluid, ISuperToken, ISuperfluidToken, ISuperApp, ISuperAgreement, 
 import {IConstantFlowAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
 
 import {Math} from "./libraries/Math.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {UQ112x112} from "./libraries/UQ112x112.sol";
 import {CFAv1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/CFAv1Library.sol";
 
@@ -86,8 +87,11 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return time The current block timestamp modulo 2**32.
      */
     function getRealTimeIncomingFlowRates() public view returns (uint112 totalFlow0, uint112 totalFlow1, uint32 time) {
-        totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        uint96 netFlow0Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+        uint96 netFlow1Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+
+        totalFlow0 = uint112(netFlow0Uint96);
+        totalFlow1 = uint112(netFlow1Uint96);
         time = uint32(block.timestamp % 2 ** 32);
     }
 
@@ -128,8 +132,11 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return reserve1 The reserve of token1 at the specified time.
      */
     function getReservesAtTime(uint32 time) public view returns (uint112 reserve0, uint112 reserve1) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        uint96 netFlow0Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+        uint96 netFlow1Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+
+        uint112 totalFlow0 = uint112(netFlow0Uint96);
+        uint112 totalFlow1 = uint112(netFlow1Uint96);
         (reserve0, reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
     }
 
@@ -186,7 +193,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return fees calculated fees.
      */
     function _calculateFees(uint112 totalFlow, uint32 timeElapsed) internal pure returns (uint112 fees) {
-        fees = (totalFlow * timeElapsed * TWAP_FEE) / 10000;
+        fees = SafeCast.toUint112((totalFlow * timeElapsed * TWAP_FEE) / 10000);
     }
 
     /**
@@ -201,7 +208,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 totalFlow,
         uint32 timeElapsed
     ) internal pure returns (uint112 reserveAmountSinceTime) {
-        reserveAmountSinceTime = (totalFlow * timeElapsed * (10000 - TWAP_FEE)) / 10000;
+        reserveAmountSinceTime = SafeCast.toUint112((totalFlow * timeElapsed * (10000 - TWAP_FEE)) / 10000);
     }
 
     /**
@@ -227,12 +234,12 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // use approximation:
         uint112 reserveAmountSinceTime0 = _calculateReserveAmountSinceTime(totalFlow0, timeElapsed);
         uint112 reserveAmountSinceTime1 = _calculateReserveAmountSinceTime(totalFlow1, timeElapsed);
-        reserve0 = uint112(
+        reserve0 = SafeCast.toUint112(
             Math.sqrt(
                 (_kLast * (currentReserve0 + reserveAmountSinceTime0)) / (currentReserve1 + reserveAmountSinceTime1)
             )
         );
-        reserve1 = uint112(_kLast / reserve0);
+        reserve1 = SafeCast.toUint112(_kLast / reserve0);
     }
 
     /**
@@ -255,8 +262,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
         // use x * y = k
         uint112 reserveAmountSinceTime0 = _calculateReserveAmountSinceTime(totalFlow0, timeElapsed);
-        reserve0 = currentReserve0 + reserveAmountSinceTime0;
-        reserve1 = uint112(_kLast / reserve0); // should be a safe downcast
+        reserve0 = SafeCast.toUint112(currentReserve0 + reserveAmountSinceTime0);
+        reserve1 = SafeCast.toUint112(_kLast / reserve0); // should be a safe downcast
     }
 
     /**
@@ -280,7 +287,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // use x * y = k
         uint112 reserveAmountSinceTime1 = _calculateReserveAmountSinceTime(totalFlow1, timeElapsed);
         reserve1 = currentReserve1 + reserveAmountSinceTime1;
-        reserve0 = uint112(_kLast / reserve1); // should be a safe downcast
+        reserve0 = SafeCast.toUint112(_kLast / reserve1); // should be a safe downcast
     }
 
     /**************************************************************************
@@ -347,6 +354,12 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return balance1 User's balance for `token1` at the specified time.
      */
     function getUserBalancesAtTime(address user, uint32 time) public view returns (uint256 balance0, uint256 balance1) {
+        // FIXME: stack too deep
+        // uint96 netFlow0Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+        // uint96 netFlow1Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+        // uint112 totalFlow0 = uint112(netFlow0Uint96);
+        // uint112 totalFlow1 = uint112(netFlow1Uint96);
+
         uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
         uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
         (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
@@ -396,6 +409,13 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         );
 
         // flow in is always positive
+
+        // FIXME: stack too deep
+        // uint96 flow0Uint96 = SafeCast.toUint96(uint256(uint96(flow0)));
+        // uint96 flow1Uint96 = SafeCast.toUint96(uint256(uint96(flow1)));
+        // balance0 = UQ112x112.decode(uint256(flow0Uint96) * (_twap0CumulativeLast - userStartingCumulatives0[user]));
+        // balance1 = UQ112x112.decode(uint256(flow1Uint96) * (_twap1CumulativeLast - userStartingCumulatives1[user]));
+
         balance0 = UQ112x112.decode(uint256(uint96(flow1)) * (_twap0CumulativeLast - userStartingCumulatives0[user]));
         balance1 = UQ112x112.decode(uint256(uint96(flow0)) * (_twap1CumulativeLast - userStartingCumulatives1[user]));
     }
@@ -658,23 +678,25 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // set user starting cumulative
         if (address(_superToken) == _token1) {
             (, int96 flow0, , ) = cfa.getFlow(token0, msg.sender, address(this));
+            uint96 flow0Uint96 = SafeCast.toUint96(uint256(uint96(flow0)));
             returnedBalance = UQ112x112.decode(
-                uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[msg.sender])
+                uint256(flow0Uint96) * (twap1CumulativeLast - userStartingCumulatives1[msg.sender])
             );
 
             if (returnedBalance > 0) _safeTransfer(_token1, msg.sender, returnedBalance);
             userStartingCumulatives1[msg.sender] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
-            _totalSwappedFunds1 -= uint112(returnedBalance);
+            _totalSwappedFunds1 -= SafeCast.toUint112(returnedBalance);
         } else {
             (, int96 flow1, , ) = cfa.getFlow(token1, msg.sender, address(this));
+            uint96 flow1Uint96 = SafeCast.toUint96(uint256(uint96(flow1)));
             returnedBalance = UQ112x112.decode(
-                uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
+                uint256(flow1Uint96) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
             );
 
             if (returnedBalance > 0) _safeTransfer(_token0, msg.sender, returnedBalance);
             userStartingCumulatives0[msg.sender] = twap0CumulativeLast;
-            _totalSwappedFunds0 -= uint112(returnedBalance);
+            _totalSwappedFunds0 -= SafeCast.toUint112(returnedBalance);
         }
 
         // subtract locked funds that are not part of the reserves
@@ -783,22 +805,24 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // set user starting cumulative
         (address user, ) = abi.decode(_agreementData, (address, address));
         if (address(_superToken) == _token0) {
+            uint96 flow0Uint96 = SafeCast.toUint96(uint256(uint96(flow0)));
             uint256 balance1 = UQ112x112.decode(
-                uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[user])
+                uint256(flow0Uint96) * (twap1CumulativeLast - userStartingCumulatives1[user])
             );
 
             if (balance1 > 0) _safeTransfer(_token1, user, balance1);
             userStartingCumulatives1[user] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
-            _totalSwappedFunds1 -= uint112(balance1);
+            _totalSwappedFunds1 -= SafeCast.toUint112(balance1);
         } else {
+            uint96 flow1Uint96 = SafeCast.toUint96(uint256(uint96(flow1)));
             uint256 balance0 = UQ112x112.decode(
-                uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[user])
+                uint256(flow1Uint96) * (twap0CumulativeLast - userStartingCumulatives0[user])
             );
 
             if (balance0 > 0) _safeTransfer(_token0, user, balance0);
             userStartingCumulatives0[user] = twap0CumulativeLast;
-            _totalSwappedFunds0 -= uint112(balance0);
+            _totalSwappedFunds0 -= SafeCast.toUint112(balance0);
         }
 
         // subtract locked funds that are not part of the reserves
@@ -809,8 +833,10 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     }
 
     function _handleBeforeCallback(bytes calldata _agreementData) internal view returns (bytes memory) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        uint96 netFlow0Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token0, address(this)))));
+        uint96 netFlow1Uint96 = SafeCast.toUint96(uint256(uint96(cfa.getNetFlow(token1, address(this)))));
+        uint112 totalFlow0 = uint112(netFlow0Uint96);
+        uint112 totalFlow1 = uint112(netFlow1Uint96);
         (address user, ) = abi.decode(_agreementData, (address, address));
         (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
         (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
