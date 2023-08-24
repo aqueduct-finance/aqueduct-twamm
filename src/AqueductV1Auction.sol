@@ -25,7 +25,8 @@ contract AqueductV1Auction is IAqueductV1Auction {
         _;
     }
 
-    uint256 private unlocked = 1;
+    uint256 private placeBidUnlocked = 1;
+    uint256 private executeWinningBidUnlocked = 1;
 
     address public override factory;
 
@@ -82,7 +83,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         uint256 bid,
         uint256 swapAmount,
         uint256 deadline
-    ) external ensure(deadline) lock {
+    ) external ensure(deadline) placeBidLock {
         Auction memory auction = getAuction[pair];
 
         if (block.timestamp > auction.lastAuctionTimestamp) {
@@ -146,7 +147,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
      * @notice Returns swapped funds to the winner and sends bid to the pair as reward to LPs
      * @param pair The address of the pair
      */
-    function executeWinningBid(address pair) public {
+    function executeWinningBid(address pair) public executeWinningBidLock {
         Auction memory auction = getAuction[pair];
         if (block.timestamp <= auction.lastAuctionTimestamp || auction.winningBid == 0)
             revert AUCTION_ALREADY_EXECUTED();
@@ -176,10 +177,17 @@ contract AqueductV1Auction is IAqueductV1Auction {
     }
 
     // used to prevent reentrancy
-    modifier lock() {
-        if (unlocked != 1) revert AUCTION_LOCKED();
-        unlocked = 0;
+    modifier placeBidLock() {
+        if (placeBidUnlocked != 1) revert AUCTION_LOCKED();
+        placeBidUnlocked = 0;
         _;
-        unlocked = 1;
+        placeBidUnlocked = 1;
+    }
+
+    modifier executeWinningBidLock() {
+        if (executeWinningBidUnlocked != 1) revert AUCTION_LOCKED();
+        executeWinningBidUnlocked = 0;
+        _;
+        executeWinningBidUnlocked = 1;
     }
 }
