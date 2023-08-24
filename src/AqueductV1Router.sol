@@ -5,6 +5,13 @@ pragma solidity ^0.8.12;
 //solhint-disable var-name-mixedcase
 //solhint-disable reason-string
 
+import {ISuperfluid, ISuperToken, ISuperApp} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+import {IConstantFlowAgreementV1} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/agreements/IConstantFlowAgreementV1.sol";
+import {IFlowScheduler} from "@superfluid-finance/automation-contracts/scheduler/contracts/interface/IFlowScheduler.sol";
+import {CFAv1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/CFAv1Library.sol";
+import {SuperTokenV1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/SuperTokenV1Library.sol";
+import {FlowOperatorDefinitions} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+
 import {IAqueductV1Factory} from "./interfaces/IAqueductV1Factory.sol";
 import {TransferHelper} from "./libraries/TransferHelper.sol";
 
@@ -13,16 +20,34 @@ import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {AqueductV1Library} from "./libraries/AqueductV1Library.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
+import "hardhat/console.sol";
+
 contract AqueductV1Router is IAqueductV1Router {
+    using SuperTokenV1Library for ISuperToken;
     address public immutable override factory;
+
+    ISuperfluid public immutable host;
+    bytes32 public constant CFA_ID = keccak256("org.superfluid-finance.agreements.ConstantFlowAgreement.v1");
+    using CFAv1Library for CFAv1Library.InitData;
+    CFAv1Library.InitData public cfaV1;
+    IConstantFlowAgreementV1 public immutable cfa;
+    IFlowScheduler public immutable flowScheduler;
 
     modifier ensure(uint256 deadline) {
         if (deadline < block.timestamp) revert ROUTER_EXPIRED();
         _;
     }
 
-    constructor(address _factory) {
+    constructor(address _factory, ISuperfluid _host, address _flowScheduler) {
+        assert(address(_factory) != address(0));
+        assert(address(_host) != address(0));
+        assert(address(_flowScheduler) != address(0));
+
         factory = _factory;
+        host = _host;
+        cfa = IConstantFlowAgreementV1(address(host.getAgreementClass(CFA_ID)));
+        cfaV1 = CFAv1Library.InitData(_host, cfa);
+        flowScheduler = IFlowScheduler(_flowScheduler);
     }
 
     // **** ADD LIQUIDITY ****
@@ -108,6 +133,84 @@ contract AqueductV1Router is IAqueductV1Router {
         uint256 value = approveMax ? type(uint256).max : liquidity;
         IAqueductV1Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
+    }
+
+    // **** STREAM SCHEDULING FUNCTIONS ****
+    function createFlowSchedule(address superToken, address sender, uint256 endDate, address pairAddress) external {
+        if (endDate <= block.timestamp) revert STREAM_END_DATE_BEFORE_NOW();
+
+        _grantFlowOperatorPermissions(superToken, address(flowScheduler));
+
+        bytes memory userData = abi.encode(sender);
+
+        host.callAppActionWithContext(
+            ISuperApp(address(flowScheduler)),
+            abi.encodeCall(
+                flowScheduler.createFlowSchedule,
+                (
+                    ISuperToken(superToken),
+                    pairAddress, // stream receiver
+                    uint32(0), // start date
+                    uint32(0), // start date max delay
+                    int96(0), // flow rate
+                    uint256(0), // start amount
+                    uint32(endDate),
+                    userData,
+                    new bytes(0)
+                )
+            ),
+            new bytes(0)
+        );
+
+        // flowScheduler.createFlowSchedule(
+        //     ISuperToken(superToken),
+        //     pairAddress, // stream receiver
+        //     uint32(0), // start date
+        //     uint32(0), // start date max delay
+        //     int96(0), // flow rate
+        //     uint256(0), // start amount
+        //     uint32(endDate),
+        //     userData,
+        //     new bytes(0)
+        // );
+    }
+
+    /**
+     * @param flowSuperToken Super token address
+     * @param flowOperator The permission grantee address
+     */
+    // function _grantFlowOperatorPermissions(address flowSuperToken, address flowOperator) internal {
+    //     host.callAgreement(
+    //         cfa,
+    //         abi.encodeCall(
+    //             cfa.updateFlowOperatorPermissions,
+    //             (
+    //                 ISuperToken(flowSuperToken),
+    //                 flowOperator,
+    //                 4, // bitmask representation of delete
+    //                 0, // flow rate allowance
+    //                 new bytes(0) // ctx
+    //             )
+    //         ),
+    //         // "0x"
+    //         new bytes(0)
+    //     );
+    // }
+    function _grantFlowOperatorPermissions(address flowSuperToken, address flowOperator) internal {
+        host.callAgreement(
+            cfa,
+            abi.encodeCall(
+                cfa.updateFlowOperatorPermissions,
+                (
+                    ISuperToken(flowSuperToken),
+                    flowOperator,
+                    FlowOperatorDefinitions.AUTHORIZE_FULL_CONTROL,
+                    type(int96).max,
+                    new bytes(0)
+                )
+            ),
+            new bytes(0)
+        );
     }
 
     // **** LIBRARY FUNCTIONS ****

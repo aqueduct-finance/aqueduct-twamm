@@ -99,8 +99,13 @@ describe("AqueductV1Router", () => {
         const factoryV2 = await v2factory.deploy(wallet.address, contractsFramework.host);
 
         // deploy routers
+        const registrationKey = "";
+        const flowScheduler = await (
+            await ethers.getContractFactory("FlowScheduler")
+        ).deploy(contractsFramework.host, registrationKey);
+
         const router = await ethers.getContractFactory("AqueductV1Router");
-        const router02 = await router.deploy(factoryV2.address);
+        const router02 = await router.deploy(factoryV2.address, contractsFramework.host, flowScheduler.address);
 
         // initialize V2
         await factoryV2.createPair(tokenA.address, tokenB.address);

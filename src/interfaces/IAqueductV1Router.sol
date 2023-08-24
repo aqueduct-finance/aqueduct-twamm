@@ -10,4 +10,5 @@ interface IAqueductV1Router is IAqueductV1Router01 {
     error ROUTER_INSUFFICIENT_OUTPUT_AMOUNT();
     error ROUTER_EXCESSIVE_INPUT_AMOUNT();
     error ROUTER_INVALID_PATH();
+    error STREAM_END_DATE_BEFORE_NOW();
 }

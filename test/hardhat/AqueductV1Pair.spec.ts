@@ -11,6 +11,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Framework } from "@superfluid-finance/sdk-core";
 import { deployTestFramework } from "@superfluid-finance/ethereum-contracts/dev-scripts/deploy-test-framework";
 import TestToken from "@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json";
+// import { getSuperAppRegistrationKey } from "./shared/impersonateSuperAppRegistration";
 
 let sfDeployer;
 let contractsFramework: any;
@@ -118,6 +119,12 @@ describe("AqueductV1Pair", () => {
             await ethers.getContractFactory("AqueductV1Factory")
         ).deploy(wallet.address, contractsFramework.host);
 
+        // const registrationKey = await getSuperAppRegistrationKey(contractsFramework.host, owner);
+        const registrationKey = "";
+        const flowScheduler = await (
+            await ethers.getContractFactory("FlowScheduler")
+        ).deploy(contractsFramework.host, registrationKey);
+
         await factory.createPair(tokenA.address, tokenB.address);
         const pair = (await ethers.getContractFactory("AqueductV1Pair")).attach(
             await factory.getPair(tokenA.address, tokenB.address)
@@ -125,6 +132,10 @@ describe("AqueductV1Pair", () => {
         const token0Address = await pair.token0();
         const token0 = tokenA.address === token0Address ? tokenA : tokenB;
         const token1 = tokenA.address === token0Address ? tokenB : tokenA;
+
+        // deploy routers
+        const AqueductV1Router = await ethers.getContractFactory("AqueductV1Router");
+        const router = await AqueductV1Router.deploy(factory.address, contractsFramework.host, flowScheduler.address);
 
         // approve max amount for every user
         await token0
@@ -148,8 +159,127 @@ describe("AqueductV1Pair", () => {
             ethers.utils.hexValue(ethers.utils.parseEther("1.0")),
         ]);
 
-        return { pair, token0, token1, wallet, other, factory, auctionAddress, mockAuctionSigner };
+        return {
+            pair,
+            token0,
+            token1,
+            wallet,
+            other,
+            factory,
+            auctionAddress,
+            mockAuctionSigner,
+            router,
+            flowScheduler,
+        };
     }
+
+    it.only("twap:retrieve_funds_token0_automation", async () => {
+        const { pair, wallet, token0, token1, router, flowScheduler } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // check initial reserves (shouldn't have changed)
+        let realTimeReserves = await pair.getReserves();
+        expect(realTimeReserves.reserve0).to.equal(token0Amount);
+        expect(realTimeReserves.reserve1).to.equal(token1Amount);
+
+        // create a stream
+        const flowRate = BigNumber.from("1000000000");
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        // create delete flow schedule
+        const endDate = (await ethers.provider.getBlock("latest")).timestamp + 20;
+        console.log("Wallet", wallet.address);
+        console.log("Router", router.address);
+        console.log(
+            token0.address,
+            wallet.address,
+            pair.address,
+            0,
+            0,
+            0,
+            endDate,
+            ethers.utils.hexlify(0),
+            ethers.utils.hexlify(0)
+        );
+
+        // await expect(router.connect(wallet).createFlowSchedule(token0.address, wallet.address, endDate, pair.address))
+        //     .to.emit(flowScheduler, "FlowScheduleCreated")
+        //     .withArgs(
+        //         token0.address,
+        //         wallet.address,
+        //         pair.address,
+        //         0,
+        //         0,
+        //         0,
+        //         endDate,
+        //         ethers.utils.hexlify(0),
+        //         ethers.utils.hexlify(0)
+        //     );
+        await flowScheduler
+            .connect(wallet)
+            .createFlowSchedule(
+                token0.address,
+                pair.address,
+                0,
+                0,
+                0,
+                0,
+                endDate,
+                ethers.utils.arrayify("0x"),
+                ethers.utils.arrayify("0x")
+            );
+
+        // skip ahead
+        await delay(600);
+
+        // check that correct swapped balance is withdrawn
+        const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance);
+        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        let nextBlockTime = latestTime + 10;
+        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+
+        const flowSchedule = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
+        console.log(flowSchedule);
+
+        const userData = ethers.utils.arrayify("0x");
+        expect(latestTime).to.be.greaterThan(endDate);
+
+        const success = await flowScheduler.executeDeleteFlow(token0.address, wallet.address, pair.address, userData);
+        expect(success).to.be.true;
+
+        // retrieve funds
+        // await pair.retrieveFunds(token1.address);
+
+        // expect(
+        //     BigNumber.from(
+        //         await token1.balanceOf({
+        //             account: wallet.address,
+        //             providerOrSigner: ethers.provider,
+        //         })
+        //     )
+        // ).to.be.equal(baseToken1Balance.add(expectedAmountsOut.balance1));
+
+        // const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        // expect(newExpectedAmountsOut.balance1).to.be.equal(BigNumber.from(0));
+    });
 
     it("mint", async () => {
         const { pair, wallet, token0, token1 } = await loadFixture(fixture);
