@@ -8,7 +8,6 @@ import {AqueductV1Pair} from "./AqueductV1Pair.sol";
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {ISuperfluid, ISuperToken, SuperAppDefinitions, ISuperApp} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {TransferHelper} from "./libraries/TransferHelper.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 
 contract AqueductV1Factory is IAqueductV1Factory {
     bytes32 public constant PAIR_HASH = keccak256(type(AqueductV1Pair).creationCode);
@@ -20,10 +19,10 @@ contract AqueductV1Factory is IAqueductV1Factory {
     address[] public override allPairs;
 
     // superfluid
-    ISuperfluid host;
+    ISuperfluid immutable host;
 
     // auction
-    IAqueductV1Auction public override auction;
+    IAqueductV1Auction public immutable override auction;
 
     constructor(address _feeToSetter, ISuperfluid _host) {
         assert(address(_host) != address(0));

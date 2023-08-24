@@ -2,6 +2,7 @@
 pragma solidity ^0.8.12;
 
 import {IAqueductV1Auction} from "./interfaces/IAqueductV1Auction.sol";
+import {IAqueductV1Factory} from "./interfaces/IAqueductV1Factory.sol";
 import {AqueductV1Pair} from "./AqueductV1Pair.sol";
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {ISuperfluid, ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -22,6 +23,15 @@ contract AqueductV1Auction is IAqueductV1Auction {
     modifier ensure(uint256 deadline) {
         if (deadline < block.timestamp) revert AUCTION_EXPIRED();
         _;
+    }
+
+    uint256 private placeBidUnlocked = 1;
+    uint256 private executeWinningBidUnlocked = 1;
+
+    address public override factory;
+
+    constructor() {
+        factory = msg.sender;
     }
 
     /**
@@ -73,7 +83,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         uint256 bid,
         uint256 swapAmount,
         uint256 deadline
-    ) external ensure(deadline) {
+    ) external ensure(deadline) placeBidLock {
         Auction memory auction = getAuction[pair];
 
         if (block.timestamp > auction.lastAuctionTimestamp) {
@@ -88,6 +98,8 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
         address token0 = address(IAqueductV1Pair(pair).token0());
         address token1 = address(IAqueductV1Pair(pair).token1());
+        if (IAqueductV1Factory(factory).getPair(token0, token1) != pair) revert AUCTION_INVALID_PAIR();
+        if (token != token0 && token != token1) revert AUCTION_TOKEN_NOT_IN_PAIR();
 
         // return old winner's funds
         (uint112 reserve0, uint112 reserve1, ) = IAqueductV1Pair(pair).getReserves();
@@ -135,7 +147,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
      * @notice Returns swapped funds to the winner and sends bid to the pair as reward to LPs
      * @param pair The address of the pair
      */
-    function executeWinningBid(address pair) public {
+    function executeWinningBid(address pair) public executeWinningBidLock {
         Auction memory auction = getAuction[pair];
         if (block.timestamp <= auction.lastAuctionTimestamp || auction.winningBid == 0)
             revert AUCTION_ALREADY_EXECUTED();
@@ -162,5 +174,20 @@ contract AqueductV1Auction is IAqueductV1Auction {
     function _safeTransfer(address token, address to, uint256 value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transfer.selector, to, value));
         if (!success && (data.length != 0 || !abi.decode(data, (bool)))) revert AUCTION_TRANSFER_FAILED();
+    }
+
+    // used to prevent reentrancy
+    modifier placeBidLock() {
+        if (placeBidUnlocked != 1) revert AUCTION_LOCKED();
+        placeBidUnlocked = 0;
+        _;
+        placeBidUnlocked = 1;
+    }
+
+    modifier executeWinningBidLock() {
+        if (executeWinningBidUnlocked != 1) revert AUCTION_LOCKED();
+        executeWinningBidUnlocked = 0;
+        _;
+        executeWinningBidUnlocked = 1;
     }
 }
