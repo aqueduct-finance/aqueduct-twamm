@@ -72,7 +72,7 @@ describe("AqueductV1Factory", () => {
     it("Pair:codeHash", async () => {
         const { factory } = await loadFixture(fixture);
         const codehash = await factory.PAIR_HASH();
-        expect(codehash).to.be.eq("0x58d4e73cdcb7da93613e90cc91a909bf6b0c8900bb499e8e96848a3a53ac17d2");
+        expect(codehash).to.be.eq("0x3377550a043598879c9c2c50246c069da976debafbf383247a8c5d2e46ac360d");
     });
 
     it("createPair", async () => {
