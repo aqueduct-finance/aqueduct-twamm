@@ -762,8 +762,9 @@ describe("AqueductV1Auction", () => {
             );
 
         // _safeTransfer will fail with AUCTION_LOCKED, but reverts with its own error message
-        await expect(
-            auction.executeWinningBid(pair.address)
-        ).to.be.revertedWithCustomError(auction, "AUCTION_TRANSFER_FAILED");
+        await expect(auction.executeWinningBid(pair.address)).to.be.revertedWithCustomError(
+            auction,
+            "AUCTION_TRANSFER_FAILED"
+        );
     });
 });
