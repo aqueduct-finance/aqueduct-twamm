@@ -36,160 +36,113 @@ contract AqueductV1PairHarnessTest is AqueductTester {
         aqueductV1PairHarness = new AqueductV1PairHarness(sf.host);
     }
 
-    // uint112 reserve0,
-    // uint112 reserve1,
-    // uint112 totalFlow0,
-    // uint112 totalFlow1
-    function testFuzz_calculateReservesBothFlows() public {
+    function testFuzz_calculateReservesBothFlows(
+        uint112 reserve0,
+        uint112 reserve1,
+        uint112 totalFlow0,
+        uint112 totalFlow1,
+        uint32 timeElapsed
+    ) public {
         // Arrange
-        // vm.assume(reserve0 > 1 * 10 ** 18);
-        // vm.assume(reserve1 > 1 * 10 ** 18);
-        // vm.assume(totalFlow0 > 1 * 10 ** 18);
-        // vm.assume(totalFlow1 > 1 * 10 ** 18);
-        uint112 reserve0 = 12146477822395085832;
-        uint112 reserve1 = 1904548252486524730983975;
-        uint112 totalFlow0 = 1286356393237815871862620419346769;
-        uint112 totalFlow1 = 1000000000000000001;
+        vm.assume(reserve0 != 0);
+        vm.assume(reserve1 != 0);
+        vm.assume(totalFlow0 != 0);
+        vm.assume(totalFlow1 != 0);
+
+        if (
+            uint256(reserve0) + (uint256(totalFlow0) * uint256(timeElapsed) * (10000 - 30) / 10000) > type(uint112).max || 
+            uint256(reserve1) + (uint256(totalFlow1) * uint256(timeElapsed) * (10000 - 30) / 10000) > type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
+
         uint256 kLast = uint256(reserve0) * reserve1;
-        uint32 timeElapsed = 12;
 
         // Act & Assert
-        vm.expectRevert();
-        (uint112 calculatedReserve0, uint112 calculatedReserve1) = aqueductV1PairHarness
-            .exposed_calculateReservesBothFlows(kLast, totalFlow0, totalFlow1, timeElapsed, reserve0, reserve1);
+        aqueductV1PairHarness.exposed_calculateReservesBothFlows(kLast, totalFlow0, totalFlow1, timeElapsed, reserve0, reserve1);
     }
 
-    // uint256 kLast,
-    // uint112 totalFlow0,
-    // uint32 timeElapsed,
-    // uint112 reserve0
-    function testFuzz_calculateReservesFlow0() public {
+    function testFuzz_calculateReservesFlow0(
+        uint112 totalFlow0,
+        uint32 timeElapsed,
+        uint112 reserve0,
+        uint112 reserve1
+    ) public {
         // Arrange
-        // uint32 tenYears = 315600000;
-        // vm.assume(kLast > reserve0);
-        // vm.assume(timeElapsed > 12 && timeElapsed < tenYears);
-        // vm.assume(totalFlow0 > 0);
-        uint256 kLast = 5192296858534827628530496329220095;
-        uint112 totalFlow0 = 1;
-        uint32 timeElapsed = 13;
-        uint112 reserve0 = 5192296858534827628530496329220084;
+        vm.assume(totalFlow0 != 0);
+        vm.assume(reserve0 != 0);
+        vm.assume(reserve1 != 0);
 
-        // uint112 expectedReserveAmountSinceTime0 = aqueductV1PairHarness.exposed_calculateReserveAmountSinceTime(
-        //     totalFlow0,
-        //     timeElapsed
-        // );
+        uint256 kLast = uint256(reserve0) * reserve1;
 
-        // uint112 expectedReserve0 = reserve0 + expectedReserveAmountSinceTime0;
-        // uint112 expectedReserve1 = uint112(kLast / expectedReserve0);
+        if (
+            uint256(reserve0) + (uint256(totalFlow0) * uint256(timeElapsed) * (10000 - 30) / 10000) > type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
 
         // Act
-        vm.expectRevert();
-        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow0(
+        aqueductV1PairHarness.exposed_calculateReservesFlow0(
             kLast,
             totalFlow0,
             timeElapsed,
             reserve0
         );
-
-        // Assert
-        // assertEq(resultReserve0, expectedReserve0);
-        // assertEq(resultReserve1, expectedReserve1);
     }
 
-    // uint256 kLast,
-    // uint112 totalFlow1,
-    // uint32 timeElapsed,
-    // uint112 reserve1
-    function testFuzz_calculateReservesFlow1() public {
+    function testFuzz_calculateReservesFlow1(
+        uint112 totalFlow1,
+        uint32 timeElapsed,
+        uint112 reserve0,
+        uint112 reserve1
+    ) public {
         // Arrange
-        // uint32 onwYear = 31560000;
-        // vm.assume(kLast > reserve1);
-        // vm.assume(timeElapsed > 12 && timeElapsed < onwYear);
-        // vm.assume(totalFlow1 > 0);
-        uint256 kLast = 5192296858534827628530496329220096;
-        uint112 totalFlow1 = 1;
-        uint32 timeElapsed = 13;
-        uint112 reserve1 = 5192296858534827628530496329220084;
+        vm.assume(totalFlow1 != 0);
+        vm.assume(reserve0 != 0);
+        vm.assume(reserve1 != 0);
 
-        // uint112 expectedReserveAmountSinceTime1 = aqueductV1PairHarness.exposed_calculateReserveAmountSinceTime(
-        //     totalFlow1,
-        //     timeElapsed
-        // );
+        uint256 kLast = uint256(reserve0) * reserve1;
 
-        // uint256 expectedReserve1 = uint256(reserve1) + expectedReserveAmountSinceTime1;
-        // uint112 expectedReserve0 = uint112(kLast / expectedReserve1);
+        if (
+            uint256(reserve1) + (uint256(totalFlow1) * uint256(timeElapsed) * (10000 - 30) / 10000) > type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
 
         // Act
-        vm.expectRevert();
-        (uint112 resultReserve0, uint112 resultReserve1) = aqueductV1PairHarness.exposed_calculateReservesFlow1(
+        aqueductV1PairHarness.exposed_calculateReservesFlow1(
             kLast,
             totalFlow1,
             timeElapsed,
             reserve1
         );
-
-        // // Assert
-        // assertEq(resultReserve0, expectedReserve0);
-        // assertEq(resultReserve1, expectedReserve1);
     }
 
-    function test_getTwapCumulative_ZeroTime() public {
-        // Arrange
-        uint112 newReserve = 2 * 10 ** 18;
-        uint112 storedReserve = 1 * 10 ** 18;
-        uint112 totalFlow = 1 * 10 ** 18;
-        uint112 totalFlowDenominator = 1 * 10 ** 18;
-        uint32 timeElapsed = 0;
+    function testFuzz_getTwapCumulative(
+        uint112 newReserve,
+        uint112 storedReserve,
+        uint112 totalFlow,
+        uint112 totalFlowDenominator,
+        uint32 timeElapsed
+    ) public {
+        vm.assume(newReserve != 0);
+        vm.assume(storedReserve != 0);
+        vm.assume(totalFlowDenominator != 0);
 
-        // uint256 expectedTwapCumulative = uint256(
-        //     UQ112x112.encode((totalFlow * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator)
-        // );
+        if (
+            (newReserve > storedReserve && newReserve - storedReserve > uint256(totalFlow) * uint256(timeElapsed)) ||
+            uint256(storedReserve) + (uint256(totalFlow) * uint256(timeElapsed)) > type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
 
         // Act
-        vm.expectRevert();
-        uint256 twapCumulative = aqueductV1PairHarness.exposed_getTwapCumulative(
+        aqueductV1PairHarness.exposed_getTwapCumulative(
             newReserve,
             storedReserve,
             totalFlow,
             totalFlowDenominator,
             timeElapsed
         );
-
-        // Assert
-        // assertEq(twapCumulative, expectedTwapCumulative);
-    }
-
-    // uint112 newReserve,
-    // uint112 storedReserve,
-    // uint112 totalFlow,
-    // uint112 totalFlowDenominator,
-    // uint32 timeElapsed
-    function testFuzz_getTwapCumulative() public {
-        // uint32 oneYear = 31560000;
-        // vm.assume(timeElapsed < oneYear);
-        // vm.assume(timeElapsed > 0);
-        // vm.assume(totalFlowDenominator > 0);
-        uint112 newReserve = 10271;
-        uint112 storedReserve = 17630;
-        uint112 totalFlow = 1028795707727257197065343753370136;
-        uint112 totalFlowDenominator = 21444;
-        uint32 timeElapsed = 33024;
-
-        // uint256 expectedTwapCumulative = uint256(
-        //     UQ112x112.encode((totalFlow * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator)
-        // );
-
-        // Act
-        vm.expectRevert();
-        uint256 result = aqueductV1PairHarness.exposed_getTwapCumulative(
-            newReserve,
-            storedReserve,
-            totalFlow,
-            totalFlowDenominator,
-            timeElapsed
-        );
-
-        // Assert
-        // assertEq(result, expectedTwapCumulative);
     }
 }
