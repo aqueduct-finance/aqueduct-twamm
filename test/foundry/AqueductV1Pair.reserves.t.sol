@@ -90,8 +90,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateFees_MaxValues() public {
         // Arrange
-        uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE());
-        uint32 timeElapsed = type(uint32).max;
+        uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE()); // max 96 bits
+        uint32 timeElapsed = type(uint16).max; // max == 112 - 96 = 16 bits
 
         uint112 expectedFee = uint112((uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000);
 
@@ -100,19 +100,32 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
         // Assert
         assertEq(calculatedFee, expectedFee);
+
+        // test overflow
+        timeElapsed = type(uint32).max;
+        vm.expectRevert();
+        aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
     }
 
     function testFuzz_calculateFees(uint112 totalFlow, uint32 timeElapsed) public {
         // Arrange
         vm.assume(totalFlow < sf.cfa.MAXIMUM_FLOW_RATE());
 
+        // expect revert if overflow
+        bool expectOverflow = (uint256(totalFlow) * uint256(timeElapsed) * TWAP_FEE) / 10000 > type(uint112).max;
+        if (expectOverflow) {
+            vm.expectRevert();
+        }
+
         uint112 expectedFee = uint112((uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000);
 
         // Act
         uint112 calculatedFee = aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
 
         // Assert
-        assertEq(calculatedFee, expectedFee);
+        if (!expectOverflow) {
+            assertEq(calculatedFee, expectedFee);
+        }
     }
 
     function test_calculateReserveAmountSinceTime_Basic() public {
@@ -154,8 +167,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateReserveAmountSinceTime_MaxValues() public {
         // Arrange
-        uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE());
-        uint32 timeElapsed = type(uint32).max;
+        uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE()); // max 96 bits
+        uint32 timeElapsed = type(uint16).max; // max == 112 - 96 = 16 bits
 
         uint112 expectedReserveAmount = uint112((uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000);
 
@@ -164,19 +177,32 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
         // Assert
         assertEq(reserveAmount, expectedReserveAmount);
+
+        // test overflow
+        timeElapsed = type(uint32).max;
+        vm.expectRevert();
+        aqueductV1PairHarness.exposed_calculateReserveAmountSinceTime(totalFlow, timeElapsed);
     }
 
     function testFuzz_calculateReserveAmountSinceTime(uint112 totalFlow, uint32 timeElapsed) public {
         // Arrange
         vm.assume(totalFlow < (sf.cfa.MAXIMUM_FLOW_RATE()));
 
+        // expect revert if overflow
+        bool expectOverflow = (uint256(totalFlow) * uint256(timeElapsed) * (10000 - TWAP_FEE)) / 10000 > type(uint112).max;
+        if (expectOverflow) {
+            vm.expectRevert();
+        }
+
         uint112 expectedReserveAmount = uint112((uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000);
 
         // Act
         uint112 reserveAmount = aqueductV1PairHarness.exposed_calculateReserveAmountSinceTime(totalFlow, timeElapsed);
 
         // Assert
-        assertEq(reserveAmount, expectedReserveAmount);
+        if (!expectOverflow) {
+            assertEq(reserveAmount, expectedReserveAmount);
+        }
     }
 
     function test_calculateReservesBothFlows_Basic() public {
