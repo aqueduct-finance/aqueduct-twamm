@@ -189,7 +189,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
         vm.assume(totalFlow < (sf.cfa.MAXIMUM_FLOW_RATE()));
 
         // expect revert if overflow
-        bool expectOverflow = (uint256(totalFlow) * uint256(timeElapsed) * (10000 - TWAP_FEE)) / 10000 > type(uint112).max;
+        bool expectOverflow = (uint256(totalFlow) * uint256(timeElapsed) * (10000 - TWAP_FEE)) / 10000 >
+            type(uint112).max;
         if (expectOverflow) {
             vm.expectRevert();
         }
@@ -282,6 +283,41 @@ contract AqueductV1PairReservesTest is AqueductTester {
         assertEq(reserve1, _reserve1);
     }
 
+    function testFuzz_calculateReservesBothFlows(
+        uint112 reserve0,
+        uint112 reserve1,
+        uint112 totalFlow0,
+        uint112 totalFlow1,
+        uint32 timeElapsed
+    ) public {
+        // Arrange
+        vm.assume(reserve0 != 0);
+        vm.assume(reserve1 != 0);
+        vm.assume(totalFlow0 != 0);
+        vm.assume(totalFlow1 != 0);
+
+        if (
+            uint256(reserve0) + ((uint256(totalFlow0) * uint256(timeElapsed) * (10000 - 30)) / 10000) >
+            type(uint112).max ||
+            uint256(reserve1) + ((uint256(totalFlow1) * uint256(timeElapsed) * (10000 - 30)) / 10000) >
+            type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
+
+        uint256 kLast = uint256(reserve0) * reserve1;
+
+        // Act & Assert
+        aqueductV1PairHarness.exposed_calculateReservesBothFlows(
+            kLast,
+            totalFlow0,
+            totalFlow1,
+            timeElapsed,
+            reserve0,
+            reserve1
+        );
+    }
+
     function test_calculateReservesFlow0_Basic() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
@@ -356,6 +392,30 @@ contract AqueductV1PairReservesTest is AqueductTester {
         assertEq(resultReserve1, expectedReserve1);
     }
 
+    function testFuzz_calculateReservesFlow0(
+        uint112 totalFlow0,
+        uint32 timeElapsed,
+        uint112 reserve0,
+        uint112 reserve1
+    ) public {
+        // Arrange
+        vm.assume(totalFlow0 != 0);
+        vm.assume(reserve0 != 0);
+        vm.assume(reserve1 != 0);
+
+        uint256 kLast = uint256(reserve0) * reserve1;
+
+        if (
+            uint256(reserve0) + ((uint256(totalFlow0) * uint256(timeElapsed) * (10000 - 30)) / 10000) >
+            type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
+
+        // Act
+        aqueductV1PairHarness.exposed_calculateReservesFlow0(kLast, totalFlow0, timeElapsed, reserve0);
+    }
+
     function test_calculateReservesFlow1_Basic() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
@@ -428,5 +488,29 @@ contract AqueductV1PairReservesTest is AqueductTester {
         // Assert
         assertEq(resultReserve0, expectedReserve0);
         assertEq(resultReserve1, expectedReserve1);
+    }
+
+    function testFuzz_calculateReservesFlow1(
+        uint112 totalFlow1,
+        uint32 timeElapsed,
+        uint112 reserve0,
+        uint112 reserve1
+    ) public {
+        // Arrange
+        vm.assume(totalFlow1 != 0);
+        vm.assume(reserve0 != 0);
+        vm.assume(reserve1 != 0);
+
+        uint256 kLast = uint256(reserve0) * reserve1;
+
+        if (
+            uint256(reserve1) + ((uint256(totalFlow1) * uint256(timeElapsed) * (10000 - 30)) / 10000) >
+            type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
+
+        // Act
+        aqueductV1PairHarness.exposed_calculateReservesFlow1(kLast, totalFlow1, timeElapsed, reserve1);
     }
 }

@@ -72,4 +72,32 @@ contract AqueductV1PairAccumultorTest is AqueductTester {
         // Assert
         assertEq(twapCumulative, expectedTwapCumulative);
     }
+
+    function testFuzz_getTwapCumulative(
+        uint112 newReserve,
+        uint112 storedReserve,
+        uint112 totalFlow,
+        uint112 totalFlowDenominator,
+        uint32 timeElapsed
+    ) public {
+        vm.assume(newReserve != 0);
+        vm.assume(storedReserve != 0);
+        vm.assume(totalFlowDenominator != 0);
+
+        if (
+            (newReserve > storedReserve && newReserve - storedReserve > uint256(totalFlow) * uint256(timeElapsed)) ||
+            uint256(storedReserve) + (uint256(totalFlow) * uint256(timeElapsed)) > type(uint112).max
+        ) {
+            vm.expectRevert();
+        }
+
+        // Act
+        aqueductV1PairHarness.exposed_getTwapCumulative(
+            newReserve,
+            storedReserve,
+            totalFlow,
+            totalFlowDenominator,
+            timeElapsed
+        );
+    }
 }
