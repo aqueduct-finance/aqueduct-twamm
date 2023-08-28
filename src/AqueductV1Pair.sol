@@ -254,7 +254,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     }
 
     /**
-     * @dev computes a * b / c without overflow
+     * @dev computes a * b / c in a way that is overflow resistant
      */
     function _overflowResistantReserveCalc(uint256 a, uint256 b, uint256 c) internal pure returns (uint256 result) {
         uint256 q1 = a / c;
