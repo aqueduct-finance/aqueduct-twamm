@@ -210,7 +210,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     /**
      * @notice Calculates reserves when both flows exist.
      * @dev Reserves are calculated based on the invariant (_kLast) and updated flows.
-     * @param _kLast The previous product of the reserves (_reserve0 * _reserve1).
+     * @param _kLast The previous product of the reserves (currentReserve0 * currentReserve1).
      * @param totalFlow0 Total flow of token0.
      * @param totalFlow1 Total flow of token1.
      * @param timeElapsed Time elapsed since the last update.
@@ -272,7 +272,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @dev Uses invariant x * y = k to calculate the reserves when only flow0 is active.
      *      The total amount of token0 is calculated after fee and added to the current reserves.
      *      Downcasting uint256 to uint112 should be safe in this context.
-     * @param _kLast The previous product of the reserves (_reserve0 * _reserve1).
+     * @param _kLast The previous product of the reserves (currentReserve0 * currentReserve1).
      * @param totalFlow0 Total flow of token0.
      * @param timeElapsed Time elapsed since the last update.
      * @param currentReserve0 The current reserve of token0.
@@ -296,7 +296,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @dev Uses invariant x * y = k to calculate the reserves when only flow1 is active.
      *      The total amount of token1 is calculated after fee and added to the current reserves.
      *      Downcasting uint256 to uint112 should be safe in this context.
-     * @param _kLast The previous product of the reserves (_reserve0 * _reserve1).
+     * @param _kLast The previous product of the reserves (currentReserve0 * currentReserve1).
      * @param totalFlow1 Total flow of token1.
      * @param timeElapsed Time elapsed since the last update.
      * @param currentReserve1 The current reserve of token1.
