@@ -240,9 +240,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 currentReserve0 + reserveAmountSinceTime0,
                 currentReserve1 + reserveAmountSinceTime1
             );
-            reserve0 = SafeCast.toUint112(
-                Math.sqrt(result)
-            );
+            reserve0 = SafeCast.toUint112(Math.sqrt(result));
             reserve1 = SafeCast.toUint112(_kLast / reserve0);
         } else {
             uint256 result = _overflowResistantReserveCalc(
@@ -250,9 +248,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 currentReserve1 + reserveAmountSinceTime1,
                 currentReserve0 + reserveAmountSinceTime0
             );
-            reserve1 = SafeCast.toUint112(
-                Math.sqrt(result)
-            );
+            reserve1 = SafeCast.toUint112(Math.sqrt(result));
             reserve0 = SafeCast.toUint112(_kLast / reserve1);
         }
     }
@@ -260,11 +256,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     /**
      * @dev computes a * b / c without overflow
      */
-    function _overflowResistantReserveCalc(
-        uint256 a,
-        uint256 b,
-        uint256 c
-    ) internal pure returns (uint256 result) {
+    function _overflowResistantReserveCalc(uint256 a, uint256 b, uint256 c) internal pure returns (uint256 result) {
         uint256 q1 = a / c;
         uint256 r1 = a % c;
         uint256 q2 = b / c;
