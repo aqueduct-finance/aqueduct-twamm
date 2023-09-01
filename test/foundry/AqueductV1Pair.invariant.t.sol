@@ -35,6 +35,8 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
 
     address[] internal testAccounts = [ADMIN, ALICE, BOB, CAROL, DAN, EVE, FRANK, GRACE, HEIDI, IVAN];
 
+    uint256 internal constant INIT_SUPER_TOKEN_BALANCE = 1 * 10 ** 18;
+
     AqueductV1Pair public aqueductV1Pair;
     AqueductV1Factory public aqueductV1Factory;
 
@@ -49,30 +51,86 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
         superTokenB = ISuperToken(tokenB);
     }
 
-    function mint(address to) public returns (uint256 liquidity) {
-        aqueductV1Pair.mint(to);
+    function mint(uint8 index) public {
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        uint256 superTokenABalance = superTokenA.balanceOf(testAccounts[index]);
+        uint256 superTokenBBalance = superTokenB.balanceOf(testAccounts[index]);
+
+        vm.startPrank(testAccounts[index]);
+        superTokenA.transfer(address(aqueductV1Pair), superTokenABalance / 2);
+        superTokenB.transfer(address(aqueductV1Pair), superTokenBBalance / 2);
+        vm.stopPrank();
+
+        aqueductV1Pair.mint(testAccounts[index]);
     }
 
-    function burn(address to) public returns (uint256 amount0, uint256 amount1) {
-        aqueductV1Pair.burn(to);
+    function burn(uint8 index) public {
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        uint256 liquidity = aqueductV1Pair.balanceOf(testAccounts[index]);
+        if (liquidity == 0) {
+            return;
+        }
+
+        vm.startPrank(testAccounts[index]);
+        aqueductV1Pair.transfer(address(aqueductV1Pair), liquidity);
+        vm.stopPrank();
+
+        aqueductV1Pair.burn(testAccounts[index]);
     }
 
-    function swap(uint256 amount0Out, uint256 amount1Out, address to) public {
-        (uint112 totalFlow0, uint112 totalFlow1, uint32 time) = aqueductV1Pair.getRealTimeIncomingFlowRates();
-        (uint112 reserve0, uint112 reserve1) = aqueductV1Pair.getReservesAtTime(time);
+    function swapTokenA(uint256 amountBOut, uint8 index) public {
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
 
-        amount0Out = bound(amount0Out, 1, reserve0);
-        amount1Out = bound(amount1Out, 1, reserve1);
-        vm.startPrank(address(aqueductV1Factory));
-        aqueductV1Pair.swap(amount0Out, amount1Out, to);
+        (, , uint32 time) = aqueductV1Pair.getRealTimeIncomingFlowRates();
+        (uint112 reserve0, ) = aqueductV1Pair.getReservesAtTime(time);
+        if (reserve0 == 0) {
+            return;
+        }
+
+        uint256 superTokenABalance = superTokenA.balanceOf(testAccounts[index]);
+
+        // prevent PAIR_INSUFFICIENT_OUTPUT_AMOUNT & PAIR_INSUFFICIENT_LIQUIDITY
+        amountBOut = bound(amountBOut, 1, uint256(superTokenABalance));
+
+        vm.startPrank(testAccounts[index]);
+        superTokenA.transfer(address(aqueductV1Pair), superTokenABalance);
+        vm.stopPrank();
+
+        vm.startPrank(address(aqueductV1Factory.auction()));
+        aqueductV1Pair.swap(amountBOut, 0, address(aqueductV1Factory.auction()));
         vm.stopPrank();
     }
 
-    function retrieveFundsTokenA() public returns (uint256 returnedBalance) {
+    function swapTokenB(uint256 amountAOut, uint8 index) public {
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        (, , uint32 time) = aqueductV1Pair.getRealTimeIncomingFlowRates();
+        (, uint112 reserve1) = aqueductV1Pair.getReservesAtTime(time);
+        if (reserve1 == 0) {
+            return;
+        }
+
+        uint256 superTokenBBalance = superTokenB.balanceOf(testAccounts[index]);
+
+        // prevent PAIR_INSUFFICIENT_OUTPUT_AMOUNT & PAIR_INSUFFICIENT_LIQUIDITY
+        amountAOut = bound(amountAOut, 1, uint256(superTokenBBalance));
+
+        vm.startPrank(testAccounts[index]);
+        superTokenB.transfer(address(aqueductV1Pair), superTokenBBalance);
+        vm.stopPrank();
+
+        vm.startPrank(address(aqueductV1Factory.auction()));
+        aqueductV1Pair.swap(0, amountAOut, testAccounts[index]);
+        vm.stopPrank();
+    }
+
+    function retrieveFundsTokenA() public {
         aqueductV1Pair.retrieveFunds(superTokenA);
     }
 
-    function retrieveFundsTokenB() public returns (uint256 returnedBalance) {
+    function retrieveFundsTokenB() public {
         aqueductV1Pair.retrieveFunds(superTokenB);
     }
 
@@ -81,7 +139,7 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function createStreamTokenA(uint8 index) external {
-        index = uint8(bound(uint256(index), uint256(0), uint256(9)));
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
 
         vm.startPrank(testAccounts[index]);
         superTokenA.createFlow(address(aqueductV1Pair), 1 * 10 ** 18);
@@ -89,7 +147,7 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function createStreamTokenB(uint8 index) external {
-        index = uint8(bound(uint256(index), uint256(0), uint256(9)));
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
 
         vm.startPrank(testAccounts[index]);
         superTokenB.createFlow(address(aqueductV1Pair), 1 * 10 ** 18);
@@ -97,7 +155,12 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function updateStreamTokenA(uint8 index) external {
-        index = uint8(bound(uint256(index), uint256(0), uint256(9)));
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        int96 flowRate = superTokenA.getFlowRate(testAccounts[index], address(aqueductV1Pair));
+        if (flowRate == 0) {
+            return;
+        }
 
         vm.startPrank(testAccounts[index]);
         superTokenA.updateFlow(address(aqueductV1Pair), 1 * 10 ** 18);
@@ -105,7 +168,12 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function updateStreamTokenB(uint8 index) external {
-        index = uint8(bound(uint256(index), uint256(0), uint256(9)));
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        int96 flowRate = superTokenB.getFlowRate(testAccounts[index], address(aqueductV1Pair));
+        if (flowRate == 0) {
+            return;
+        }
 
         vm.startPrank(testAccounts[index]);
         superTokenB.updateFlow(address(aqueductV1Pair), 1 * 10 ** 18);
@@ -113,7 +181,12 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function deleteStreamTokenA(uint8 index) external {
-        index = uint8(bound(uint256(index), uint256(0), uint256(9)));
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        int96 flowRate = superTokenA.getFlowRate(testAccounts[index], address(aqueductV1Pair));
+        if (flowRate == 0) {
+            return;
+        }
 
         vm.startPrank(testAccounts[index]);
         superTokenA.deleteFlow(testAccounts[index], address(aqueductV1Pair));
@@ -121,7 +194,12 @@ contract AqueductV1PairHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function deleteStreamTokenB(uint8 index) external {
-        index = uint8(bound(uint256(index), uint256(0), uint256(9)));
+        index = uint8(bound(uint256(index), uint256(0), uint256(testAccounts.length - 1)));
+
+        int96 flowRate = superTokenB.getFlowRate(testAccounts[index], address(aqueductV1Pair));
+        if (flowRate == 0) {
+            return;
+        }
 
         vm.startPrank(testAccounts[index]);
         superTokenB.deleteFlow(testAccounts[index], address(aqueductV1Pair));
@@ -144,8 +222,8 @@ contract AqueductV1PairInvariantTest is AqueductTester {
         (uint112 staticReserve0, uint112 staticReserve1, ) = aqueductV1PairHandler.aqueductV1Pair().getStaticReserves();
         (uint112 realTimeReserve0, uint112 realTimeReserve1, ) = aqueductV1PairHandler.aqueductV1Pair().getReserves();
 
-        uint256 expectedKLastStaticReserves = staticReserve0 * staticReserve1;
-        uint256 expectedKLastRealTimeReserves = realTimeReserve0 * realTimeReserve1;
+        uint256 expectedKLastStaticReserves = uint256(staticReserve0) * staticReserve1;
+        uint256 expectedKLastRealTimeReserves = uint256(realTimeReserve0) * realTimeReserve1;
 
         // Act
         uint256 kLast = aqueductV1PairHandler.aqueductV1Pair().kLast();
