@@ -140,6 +140,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         auction.winningSwapAmount = swapAmount;
         auction.lockedSwapAmountOut = amountOut;
         auction.winningBidderAddress = msg.sender;
+        auction.lastAuctionTimestamp = block.timestamp;
         getAuction[pair] = auction;
     }
 

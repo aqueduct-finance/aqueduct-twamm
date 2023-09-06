@@ -767,4 +767,55 @@ describe("AqueductV1Auction", () => {
             "AUCTION_TRANSFER_FAILED"
         );
     });
+
+    it("auction:place_execute_bid_in_one_block", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        const token1InitialBalance = BigInt(
+            await token1.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })
+        );
+
+        // first bid
+        const bid1 = expandTo18Decimals(1);
+        const swapAmount = expandTo18Decimals(1);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, bid1, swapAmount, ethers.constants.MaxUint256);
+
+        // let executeWinningBid() be in the same block with the second-placed bid
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // second bid
+        const bid2 = expandTo18Decimals(2);
+        const swapAmount2 = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        await auction
+            .connect(other)
+            .placeBid(token0.address, pair.address, bid2, swapAmount2, ethers.constants.MaxUint256);
+
+        await network.provider.send("evm_setAutomine", [true]);
+
+        // second bid should not be executed until the next block
+        await expect(auction.executeWinningBid(pair.address)).to.be.revertedWithCustomError(
+            auction,
+            "AUCTION_ALREADY_EXECUTED"
+        );
+        // the first bid should be executed
+        expect(await token1.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })).to.equal(
+            token1InitialBalance + BigInt("1666666666666666666")
+        );
+    });
 });
