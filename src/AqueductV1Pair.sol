@@ -86,7 +86,12 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return totalFlow1 The total incoming flow rate for `token1`.
      * @return time The current block timestamp modulo 2**32.
      */
-    function getRealTimeIncomingFlowRates() public view returns (uint112 totalFlow0, uint112 totalFlow1, uint32 time) {
+    function getRealTimeIncomingFlowRates()
+        public
+        view
+        override
+        returns (uint112 totalFlow0, uint112 totalFlow1, uint32 time)
+    {
         totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
         totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
         time = uint32(block.timestamp % 2 ** 32);
@@ -103,7 +108,12 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return reserve1 The current reserve of `token1`.
      * @return blockTimestampLast The timestamp of the last block when reserves were updated.
      */
-    function getStaticReserves() public view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) {
+    function getStaticReserves()
+        public
+        view
+        override
+        returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)
+    {
         reserve0 = _reserve0;
         reserve1 = _reserve1;
         blockTimestampLast = _blockTimestampLast;
@@ -128,7 +138,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return reserve0 The reserve of token0 at the specified time.
      * @return reserve1 The reserve of token1 at the specified time.
      */
-    function getReservesAtTime(uint32 time) public view returns (uint112 reserve0, uint112 reserve1) {
+    function getReservesAtTime(uint32 time) public view override returns (uint112 reserve0, uint112 reserve1) {
         uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
         uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
         (reserve0, reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
@@ -366,7 +376,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      */
     function getRealTimeUserBalances(
         address user
-    ) public view returns (uint256 balance0, uint256 balance1, uint256 time) {
+    ) public view override returns (uint256 balance0, uint256 balance1, uint256 time) {
         (balance0, balance1) = getUserBalancesAtTime(user, uint32(block.timestamp % 2 ** 32));
         time = block.timestamp;
     }
@@ -378,7 +388,10 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return balance0 User's balance for `token0` at the specified time.
      * @return balance1 User's balance for `token1` at the specified time.
      */
-    function getUserBalancesAtTime(address user, uint32 time) public view returns (uint256 balance0, uint256 balance1) {
+    function getUserBalancesAtTime(
+        address user,
+        uint32 time
+    ) public view override returns (uint256 balance0, uint256 balance1) {
         uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
         uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
         (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
@@ -675,7 +688,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @notice Retrieve locked swaps
      * @param _superToken the token to be retrieved
      */
-    function retrieveFunds(ISuperToken _superToken) external lock returns (uint256 returnedBalance) {
+    function retrieveFunds(ISuperToken _superToken) external override lock returns (uint256 returnedBalance) {
         if (address(_superToken) != address(token0) && address(_superToken) != address(token1))
             revert PAIR_TOKEN_NOT_IN_POOL();
 
