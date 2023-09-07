@@ -675,16 +675,19 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @notice Retrieve locked swaps
      * @param _superToken the token to be retrieved
      */
-    function retrieveFunds(ISuperToken _superToken) external returns (uint256 returnedBalance) {
+    function retrieveFunds(ISuperToken _superToken) external lock returns (uint256 returnedBalance) {
         if (address(_superToken) != address(token0) && address(_superToken) != address(token1))
             revert PAIR_TOKEN_NOT_IN_POOL();
 
-        // get realtime reserves based
+        // get realtime reserves
         (uint112 totalFlow0, uint112 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
 
         address _token0 = address(token0);
         address _token1 = address(token1);
+
+        uint256 poolBalance0;
+        uint256 poolBalance1;
 
         _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
 
@@ -695,26 +698,32 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[msg.sender])
             );
 
-            if (returnedBalance > 0) _safeTransfer(_token1, msg.sender, returnedBalance);
             userStartingCumulatives1[msg.sender] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
             _totalSwappedFunds1 -= SafeCast.toUint112(returnedBalance);
+
+            // subtract locked funds that are not part of the reserves
+            poolBalance0 = IERC20(_token0).balanceOf(address(this)) - _totalSwappedFunds0;
+            poolBalance1 = IERC20(_token1).balanceOf(address(this)) - _totalSwappedFunds1;
+            _updateReserves(poolBalance0, poolBalance1, time);
+
+            if (returnedBalance > 0) _safeTransfer(_token1, msg.sender, returnedBalance);
         } else {
             (, int96 flow1, , ) = cfa.getFlow(token1, msg.sender, address(this));
             returnedBalance = UQ112x112.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
             );
 
-            if (returnedBalance > 0) _safeTransfer(_token0, msg.sender, returnedBalance);
             userStartingCumulatives0[msg.sender] = twap0CumulativeLast;
             _totalSwappedFunds0 -= SafeCast.toUint112(returnedBalance);
+
+            // subtract locked funds that are not part of the reserves
+            poolBalance0 = IERC20(_token0).balanceOf(address(this)) - _totalSwappedFunds0;
+            poolBalance1 = IERC20(_token1).balanceOf(address(this)) - _totalSwappedFunds1;
+            _updateReserves(poolBalance0, poolBalance1, time);
+
+            if (returnedBalance > 0) _safeTransfer(_token0, msg.sender, returnedBalance);
         }
-
-        // subtract locked funds that are not part of the reserves
-        uint256 poolBalance0 = IERC20(_token0).balanceOf(address(this)) - _totalSwappedFunds0;
-        uint256 poolBalance1 = IERC20(_token1).balanceOf(address(this)) - _totalSwappedFunds1;
-
-        _updateReserves(poolBalance0, poolBalance1, time);
     }
 
     /**
