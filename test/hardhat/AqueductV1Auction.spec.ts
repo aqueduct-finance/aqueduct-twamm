@@ -173,13 +173,24 @@ describe("AqueductV1Auction", () => {
 
         await expect(auction.placeBid(token0.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256))
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, swapAmount, 0, 0, expectedOutputAmount, auction.address);
+            .withArgs(auction.address, swapAmount, 0, 0, expectedOutputAmount, auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            );
 
         await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bidAmount)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, expectedOutputAmount);
+            .withArgs(auction.address, wallet.address, expectedOutputAmount)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, wallet.address, token1.address, expectedOutputAmount, token0.address, bidAmount);
     });
 
     it("auction:token1", async () => {
@@ -203,13 +214,24 @@ describe("AqueductV1Auction", () => {
 
         await expect(auction.placeBid(token1.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256))
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, 0, swapAmount, expectedOutputAmount, 0, auction.address);
+            .withArgs(auction.address, 0, swapAmount, expectedOutputAmount, 0, auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token1.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            );
 
         await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bidAmount)
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, expectedOutputAmount);
+            .withArgs(auction.address, wallet.address, expectedOutputAmount)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, wallet.address, token0.address, expectedOutputAmount, token1.address, bidAmount);
     });
 
     it("auction:token_under_min_bid", async () => {
@@ -299,7 +321,16 @@ describe("AqueductV1Auction", () => {
             .exec(wallet);
         await expect(auction.placeBid(token0.address, pair.address, bid1, swapAmount, ethers.constants.MaxUint256))
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, swapAmount, 0, 0, "1666666666666666666", auction.address);
+            .withArgs(auction.address, swapAmount, 0, 0, "1666666666666666666", auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bid1,
+                swapAmount,
+                "1666666666666666666",
+                ethers.constants.MaxUint256
+            );
 
         // second bid
         const bid2 = expandTo18Decimals(2);
@@ -322,14 +353,25 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bid1)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, "1666666666666666666");
+            .withArgs(auction.address, wallet.address, "1666666666666666666")
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bid2,
+                swapAmount2,
+                "1851851851851851852",
+                ethers.constants.MaxUint256
+            );
 
         // check that the second amount was swapped
         await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bid2)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "1851851851851851852");
+            .withArgs(auction.address, other.address, "1851851851851851852")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, other.address, token1.address, "1851851851851851852", token0.address, bid2);
     });
 
     it("auction:losing_bid_first", async () => {
@@ -387,7 +429,16 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
             .withArgs(auction.address, wallet.address, swapAmount.add(smallBid).sub(1)) // user loses small dust amount
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, swapAmount2, 0, 0, "2857142857142857142", auction.address);
+            .withArgs(auction.address, swapAmount2, 0, 0, "2857142857142857142", auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                largerBid,
+                swapAmount2,
+                "2857142857142857142",
+                ethers.constants.MaxUint256
+            );
 
         // check that first user got their funds back
         const currentUserBalance = await token0.balanceOf({
@@ -401,7 +452,9 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, largerBid)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "2857142857142857142");
+            .withArgs(auction.address, other.address, "2857142857142857142")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, other.address, token1.address, "2857142857142857142", token0.address, largerBid);
     });
 
     it("auction:winning_bid_first", async () => {
@@ -447,7 +500,9 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, largerBid)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, "2857142857142857142");
+            .withArgs(auction.address, wallet.address, "2857142857142857142")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, wallet.address, token1.address, "2857142857142857142", token0.address, largerBid);
     });
 
     it("auction:bid0,1", async () => {
@@ -503,7 +558,16 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, smallerBid.add(1))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "1968749999999999999");
+            .withArgs(auction.address, other.address, "1968749999999999999")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token0.address,
+                "1968749999999999999",
+                token1.address,
+                smallerBid.add(1)
+            );
     });
 
     it("auction:bid1,0", async () => {
@@ -559,7 +623,16 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, smallerBid.add(1))
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "4540540540540540540");
+            .withArgs(auction.address, other.address, "4540540540540540540")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token1.address,
+                "4540540540540540540",
+                token0.address,
+                smallerBid.add(1)
+            );
     });
 
     /**************************************************************************

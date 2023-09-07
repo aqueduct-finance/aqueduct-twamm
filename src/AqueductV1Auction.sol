@@ -142,6 +142,8 @@ contract AqueductV1Auction is IAqueductV1Auction {
         auction.winningBidderAddress = msg.sender;
         auction.lastAuctionTimestamp = block.timestamp;
         getAuction[pair] = auction;
+
+        emit PlaceBid(token, pair, bid, swapAmount, amountOut, deadline);
     }
 
     /**
@@ -164,6 +166,15 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
         // sync reserves
         IAqueductV1Pair(pair).sync();
+
+        emit ExecuteWinningBid(
+            pair,
+            auction.winningBidderAddress,
+            oppositeToken,
+            auction.lockedSwapAmountOut,
+            auction.token,
+            auction.winningBid
+        );
 
         // reset auction
         // don't reset timestamp here, will reset on first bid in next auction

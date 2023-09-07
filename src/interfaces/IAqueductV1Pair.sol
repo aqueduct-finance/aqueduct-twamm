@@ -17,6 +17,7 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
         uint256 amount1Out,
         address indexed to
     );
+    event RetrieveFunds(ISuperToken superToken, address recipient, uint256 returnedBalance);
     event Sync(uint112 reserve0, uint112 reserve1);
 
     error PAIR_LOCKED();

@@ -724,6 +724,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
             if (returnedBalance > 0) _safeTransfer(_token0, msg.sender, returnedBalance);
         }
+
+        emit RetrieveFunds(_superToken, msg.sender, returnedBalance);
     }
 
     /**

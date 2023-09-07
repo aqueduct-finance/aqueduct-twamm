@@ -936,7 +936,9 @@ describe("AqueductV1Pair", () => {
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
 
         // retrieve funds
-        await pair.retrieveFunds(token1.address);
+        await expect(pair.retrieveFunds(token1.address))
+            .to.emit(pair, "RetrieveFunds")
+            .withArgs(token1.address, wallet.address, expectedAmountsOut.balance1);
 
         expect(
             BigNumber.from(
@@ -992,7 +994,9 @@ describe("AqueductV1Pair", () => {
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
 
         // retrieve funds
-        await pair.retrieveFunds(token0.address);
+        await expect(pair.retrieveFunds(token0.address))
+            .to.emit(pair, "RetrieveFunds")
+            .withArgs(token0.address, wallet.address, expectedAmountsOut.balance0);
 
         expect(
             BigNumber.from(

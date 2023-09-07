@@ -59,10 +59,12 @@ contract AqueductV1Factory is IAqueductV1Factory {
     function setFeeTo(address _feeTo) external override {
         if (msg.sender != feeToSetter) revert FACTORY_FORBIDDEN();
         feeTo = _feeTo;
+        emit SetFeeTo(_feeTo);
     }
 
     function setFeeToSetter(address _feeToSetter) external override {
         if (msg.sender != feeToSetter) revert FACTORY_FORBIDDEN();
         feeToSetter = _feeToSetter;
+        emit SetFeeToSetter(_feeToSetter);
     }
 }
