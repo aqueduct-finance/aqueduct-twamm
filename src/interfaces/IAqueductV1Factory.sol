@@ -8,6 +8,7 @@ interface IAqueductV1Factory {
     event SetFeeTo(address feeTo);
     event SetFeeToSetter(address feeToSetter);
 
+    error HOST_ZERO_ADDRESS();
     error FACTORY_IDENTICAL_ADDRESSES();
     error FACTORY_ZERO_ADDRESS();
     error FACTORY_PAIR_EXISTS();

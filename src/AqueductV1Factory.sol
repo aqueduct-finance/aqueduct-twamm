@@ -24,7 +24,7 @@ contract AqueductV1Factory is IAqueductV1Factory {
     IAqueductV1Auction public immutable override auction;
 
     constructor(address _feeToSetter, ISuperfluid _host) {
-        assert(address(_host) != address(0));
+        if (address(_host) == address(0)) revert HOST_ZERO_ADDRESS();
         feeToSetter = _feeToSetter;
         host = _host;
 
