@@ -548,7 +548,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             liquidity = Math.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
             _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
-            liquidity = calculateLiquidity(amount0, amount1, reserve0, reserve1, totalSupply);
+            liquidity = calculateLiquidity(amount0, amount1, reserve0, reserve1, _totalSupply);
         }
         if (liquidity <= 0) revert PAIR_INSUFFICIENT_LIQUIDITY_MINTED();
         _mint(to, liquidity);

@@ -27,7 +27,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
     uint256 private placeBidUnlocked = 1;
     uint256 private executeWinningBidUnlocked = 1;
 
-    address public override factory;
+    address public immutable override factory;
 
     constructor() {
         factory = msg.sender;
