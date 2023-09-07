@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.12;
+pragma solidity 0.8.19;
 
 interface IAqueductV1Auction {
     event PlaceBid(address token, address pair, uint256 bid, uint256 swapAmount, uint256 amountOut, uint256 deadline);

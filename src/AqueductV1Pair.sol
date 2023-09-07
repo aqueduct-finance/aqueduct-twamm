@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.12;
+pragma solidity 0.8.19;
 
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {IAqueductV1Factory} from "./interfaces/IAqueductV1Factory.sol";
