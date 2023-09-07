@@ -13,7 +13,6 @@ interface IAqueductV1Auction {
     );
 
     error AUCTION_ALREADY_EXECUTED();
-    error AUCTION_PAIR_DOESNT_EXIST();
     error AUCTION_EXPIRED();
     error AUCTION_INSUFFICIENT_BID();
     error AUCTION_TRANSFER_FAILED();

@@ -11,7 +11,6 @@ import {TransferHelper} from "./libraries/TransferHelper.sol";
 import {IAqueductV1Router} from "./interfaces/IAqueductV1Router.sol";
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
 import {AqueductV1Library} from "./libraries/AqueductV1Library.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 
 contract AqueductV1Router is IAqueductV1Router {
     address public immutable override factory;

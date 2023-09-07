@@ -5,7 +5,6 @@ import {IAqueductV1Auction} from "./interfaces/IAqueductV1Auction.sol";
 import {IAqueductV1Factory} from "./interfaces/IAqueductV1Factory.sol";
 import {AqueductV1Pair} from "./AqueductV1Pair.sol";
 import {IAqueductV1Pair} from "./interfaces/IAqueductV1Pair.sol";
-import {ISuperfluid, ISuperToken} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
 import {TransferHelper} from "./libraries/TransferHelper.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
 
