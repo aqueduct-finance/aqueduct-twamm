@@ -74,6 +74,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
      * @param pair The address of the pair
      * @param bid The bid amount
      * @param swapAmount The amount of token to be swapped
+     * @param amountOutMin The minimum amount of swapped tokens received from the trade
      * @param deadline The unix timestamp that the transaction is valid up until
      */
     function placeBid(
@@ -81,6 +82,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         address pair,
         uint256 bid,
         uint256 swapAmount,
+        uint256 amountOutMin,
         uint256 deadline
     ) external ensure(deadline) placeBidLock {
         Auction memory auction = getAuction[pair];
@@ -132,6 +134,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         // just swap the swap amount, bid/fee will be sent in executeWinningBid()
         // swapped funds will be locked until executeWinningBid() is called
         uint256 amountOut = swap(token, pair, swapAmount, reserve0, reserve1, token0);
+        if (amountOut < amountOutMin) revert AUCTION_UNDER_MIN_AMOUNT_OUT();
 
         // update auction
         auction.token = token;
