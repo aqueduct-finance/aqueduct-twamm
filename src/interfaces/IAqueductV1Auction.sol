@@ -23,7 +23,14 @@ interface IAqueductV1Auction {
 
     function factory() external view returns (address);
 
-    function placeBid(address token, address pair, uint256 bid, uint256 swapAmount, uint256 amountOutMin, uint256 deadline) external;
+    function placeBid(
+        address token,
+        address pair,
+        uint256 bid,
+        uint256 swapAmount,
+        uint256 amountOutMin,
+        uint256 deadline
+    ) external;
 
     function executeWinningBid(address pair) external;
 }
