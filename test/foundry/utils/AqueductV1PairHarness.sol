@@ -50,8 +50,8 @@ contract AqueductV1PairHarness is AqueductV1Pair {
     function exposed_getTwapCumulative(
         uint112 newReserve,
         uint112 storedReserve,
-        uint112 totalFlow,
-        uint112 totalFlowDenominator,
+        uint96 totalFlow,
+        uint96 totalFlowDenominator,
         uint32 timeElapsed
     ) external pure returns (uint256) {
         return _getTwapCumulative(newReserve, storedReserve, totalFlow, totalFlowDenominator, timeElapsed);

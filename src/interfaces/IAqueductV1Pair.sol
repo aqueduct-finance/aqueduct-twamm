@@ -42,7 +42,7 @@ interface IAqueductV1Pair is IAqueductV1ERC20 {
 
     function token1() external view returns (ISuperToken);
 
-    function getRealTimeIncomingFlowRates() external view returns (uint112 totalFlow0, uint112 totalFlow1, uint32 time);
+    function getRealTimeIncomingFlowRates() external view returns (uint96 totalFlow0, uint96 totalFlow1, uint32 time);
 
     function getStaticReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
 

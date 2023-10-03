@@ -9,7 +9,7 @@ import {IConstantFlowAgreementV1} from "@superfluid-finance/ethereum-contracts/c
 
 import {Math} from "./libraries/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {UQ112x112} from "./libraries/UQ112x112.sol";
+import {UQ160x96} from "./libraries/UQ160x96.sol";
 import {CFAv1Library} from "@superfluid-finance/ethereum-contracts/contracts/apps/CFAv1Library.sol";
 
 import {AqueductV1ERC20} from "./AqueductV1ERC20.sol";
@@ -24,7 +24,7 @@ import {SuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/app
  * @author Aqueduct
  */
 contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
-    using UQ112x112 for uint224;
+    using UQ160x96 for uint256;
 
     uint256 public constant override MINIMUM_LIQUIDITY = 10 ** 3;
     uint112 public constant TWAP_FEE = 30; // basis points
@@ -90,10 +90,10 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         public
         view
         override
-        returns (uint112 totalFlow0, uint112 totalFlow1, uint32 time)
+        returns (uint96 totalFlow0, uint96 totalFlow1, uint32 time)
     {
-        totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        totalFlow0 = uint96(cfa.getNetFlow(token0, address(this)));
+        totalFlow1 = uint96(cfa.getNetFlow(token1, address(this)));
         time = uint32(block.timestamp % 2 ** 32);
     }
 
@@ -344,22 +344,18 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint32 time,
         uint112 reserve0,
         uint112 reserve1,
-        uint112 totalFlow0,
-        uint112 totalFlow1
+        uint96 totalFlow0,
+        uint96 totalFlow1
     ) internal view returns (uint256 _twap0CumulativeLast, uint256 _twap1CumulativeLast) {
         uint32 timeElapsed = time - _blockTimestampLast;
         _twap0CumulativeLast = twap0CumulativeLast;
         _twap1CumulativeLast = twap1CumulativeLast;
 
         if (totalFlow1 > 0) {
-            _twap0CumulativeLast += uint256(
-                UQ112x112.encode((totalFlow0 * timeElapsed) + _reserve0 - reserve0).uqdiv(totalFlow1)
-            );
+            _twap0CumulativeLast += UQ160x96.encode((uint160(totalFlow0) * timeElapsed) + _reserve0 - reserve0).uqdiv(totalFlow1);
         }
         if (totalFlow0 > 0) {
-            _twap1CumulativeLast += uint256(
-                UQ112x112.encode((totalFlow1 * timeElapsed) + _reserve1 - reserve1).uqdiv(totalFlow0)
-            );
+            _twap1CumulativeLast += UQ160x96.encode((uint160(totalFlow1) * timeElapsed) + _reserve1 - reserve1).uqdiv(totalFlow0);
         }
     }
 
@@ -392,8 +388,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         address user,
         uint32 time
     ) public view override returns (uint256 balance0, uint256 balance1) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        uint96 totalFlow0 = uint96(cfa.getNetFlow(token0, address(this)));
+        uint96 totalFlow1 = uint96(cfa.getNetFlow(token1, address(this)));
         (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
         (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
@@ -427,8 +423,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint32 time,
         uint112 reserve0,
         uint112 reserve1,
-        uint112 totalFlow0,
-        uint112 totalFlow1,
+        uint96 totalFlow0,
+        uint96 totalFlow1,
         int96 flow0,
         int96 flow1
     ) internal view returns (uint256 balance0, uint256 balance1) {
@@ -442,8 +438,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
         // flow in is always positive
 
-        balance0 = UQ112x112.decode(uint256(uint96(flow1)) * (_twap0CumulativeLast - userStartingCumulatives0[user]));
-        balance1 = UQ112x112.decode(uint256(uint96(flow0)) * (_twap1CumulativeLast - userStartingCumulatives1[user]));
+        balance0 = UQ160x96.decode(uint256(uint96(flow1)) * (_twap0CumulativeLast - userStartingCumulatives0[user]));
+        balance1 = UQ160x96.decode(uint256(uint96(flow0)) * (_twap1CumulativeLast - userStartingCumulatives1[user]));
     }
 
     /**************************************************************************
@@ -464,8 +460,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     function _updateAccumulators(
         uint112 reserve0,
         uint112 reserve1,
-        uint112 totalFlow0,
-        uint112 totalFlow1,
+        uint96 totalFlow0,
+        uint96 totalFlow1,
         uint32 time
     ) private {
         uint32 timeElapsedSinceInputTime = time - _blockTimestampLast;
@@ -508,13 +504,11 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     function _getTwapCumulative(
         uint112 newReserve,
         uint112 storedReserve,
-        uint112 totalFlow,
-        uint112 totalFlowDenominator,
+        uint96 totalFlow,
+        uint96 totalFlowDenominator,
         uint32 timeElapsed
     ) internal pure returns (uint256 twapCumulative) {
-        twapCumulative = uint256(
-            UQ112x112.encode((totalFlow * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator)
-        );
+        twapCumulative = UQ160x96.encode((uint160(totalFlow) * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator);
     }
 
     /**************************************************************************
@@ -530,7 +524,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return liquidity The amount of liquidity tokens minted.
      */
     function mint(address to) external override lock returns (uint256 liquidity) {
-        (uint112 totalFlow0, uint112 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
+        (uint96 totalFlow0, uint96 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
         _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
 
@@ -600,8 +594,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         bool feeOn;
         {
             // scope for _reserve{0,1} and totalFlow{0,1}, avoids stack too deep errors
-            uint112 totalFlow0;
-            uint112 totalFlow1;
+            uint96 totalFlow0;
+            uint96 totalFlow1;
             (totalFlow0, totalFlow1, time) = getRealTimeIncomingFlowRates();
             (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
             _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
@@ -649,8 +643,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             uint112 reserve1;
             {
                 // group real-time read operations for gas savings
-                uint112 totalFlow0;
-                uint112 totalFlow1;
+                uint96 totalFlow0;
+                uint96 totalFlow1;
                 (totalFlow0, totalFlow1, time) = getRealTimeIncomingFlowRates();
                 (reserve0, reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
                 _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
@@ -693,7 +687,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             revert PAIR_TOKEN_NOT_IN_POOL();
 
         // get realtime reserves
-        (uint112 totalFlow0, uint112 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
+        (uint96 totalFlow0, uint96 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
 
         address _token0 = address(token0);
@@ -707,7 +701,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // set user starting cumulative
         if (address(_superToken) == _token1) {
             (, int96 flow0, , ) = cfa.getFlow(token0, msg.sender, address(this));
-            returnedBalance = UQ112x112.decode(
+            returnedBalance = UQ160x96.decode(
                 uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[msg.sender])
             );
 
@@ -723,7 +717,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             if (returnedBalance > 0) _safeTransfer(_token1, msg.sender, returnedBalance);
         } else {
             (, int96 flow1, , ) = cfa.getFlow(token1, msg.sender, address(this));
-            returnedBalance = UQ112x112.decode(
+            returnedBalance = UQ160x96.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
             );
 
@@ -745,7 +739,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @notice Force the reserves to match with the contract's token balances.
      */
     function sync() external override lock {
-        (uint112 totalFlow0, uint112 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
+        (uint96 totalFlow0, uint96 totalFlow1, uint32 time) = getRealTimeIncomingFlowRates();
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
         _updateAccumulators(reserve0, reserve1, totalFlow0, totalFlow1, time);
 
@@ -821,9 +815,9 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             revert PAIR_TOKEN_NOT_IN_POOL();
 
         // decode previous net flowrates
-        (uint112 totalFlow0, uint112 totalFlow1, int96 flow0, int96 flow1) = abi.decode(
+        (uint96 totalFlow0, uint96 totalFlow1, int96 flow0, int96 flow1) = abi.decode(
             _cbdata,
-            (uint112, uint112, int96, int96)
+            (uint96, uint96, int96, int96)
         );
 
         // get time
@@ -840,7 +834,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // set user starting cumulative
         (address user, ) = abi.decode(_agreementData, (address, address));
         if (address(_superToken) == _token0) {
-            uint256 balance1 = UQ112x112.decode(
+            uint256 balance1 = UQ160x96.decode(
                 uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[user])
             );
 
@@ -849,7 +843,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
             _totalSwappedFunds1 -= SafeCast.toUint112(balance1);
         } else {
-            uint256 balance0 = UQ112x112.decode(
+            uint256 balance0 = UQ160x96.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[user])
             );
 
@@ -866,8 +860,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     }
 
     function _handleBeforeCallback(bytes calldata _agreementData) internal view returns (bytes memory) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        uint96 totalFlow0 = uint96(cfa.getNetFlow(token0, address(this)));
+        uint96 totalFlow1 = uint96(cfa.getNetFlow(token1, address(this)));
         (address user, ) = abi.decode(_agreementData, (address, address));
         (, int96 flow0, , ) = cfa.getFlow(token0, user, address(this));
         (, int96 flow1, , ) = cfa.getFlow(token1, user, address(this));
