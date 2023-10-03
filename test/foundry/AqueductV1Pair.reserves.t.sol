@@ -13,14 +13,12 @@ import {IAqueductV1Pair} from "../../src/interfaces/IAqueductV1Pair.sol";
 import {AqueductV1Factory} from "../../src/AqueductV1Factory.sol";
 import {AqueductV1PairHarness} from "./utils/AqueductV1PairHarness.sol";
 
-import {UQ112x112} from "../../src/libraries/UQ112x112.sol";
 import {Math} from "../../src/libraries/Math.sol";
 import {AqueductTester} from "./utils/AqueductTester.sol";
 
 import "forge-std/console2.sol";
 
 contract AqueductV1PairReservesTest is AqueductTester {
-    using UQ112x112 for uint224;
 
     constructor() AqueductTester() {}
 
