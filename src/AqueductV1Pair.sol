@@ -352,10 +352,14 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         _twap1CumulativeLast = twap1CumulativeLast;
 
         if (totalFlow1 > 0) {
-            _twap0CumulativeLast += UQ160x96.encode((uint160(totalFlow0) * timeElapsed) + _reserve0 - reserve0).uqdiv(totalFlow1);
+            _twap0CumulativeLast += UQ160x96.encode((uint160(totalFlow0) * timeElapsed) + _reserve0 - reserve0).uqdiv(
+                totalFlow1
+            );
         }
         if (totalFlow0 > 0) {
-            _twap1CumulativeLast += UQ160x96.encode((uint160(totalFlow1) * timeElapsed) + _reserve1 - reserve1).uqdiv(totalFlow0);
+            _twap1CumulativeLast += UQ160x96.encode((uint160(totalFlow1) * timeElapsed) + _reserve1 - reserve1).uqdiv(
+                totalFlow0
+            );
         }
     }
 
@@ -508,7 +512,9 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint96 totalFlowDenominator,
         uint32 timeElapsed
     ) internal pure returns (uint256 twapCumulative) {
-        twapCumulative = UQ160x96.encode((uint160(totalFlow) * timeElapsed) + storedReserve - newReserve).uqdiv(totalFlowDenominator);
+        twapCumulative = UQ160x96.encode((uint160(totalFlow) * timeElapsed) + storedReserve - newReserve).uqdiv(
+            totalFlowDenominator
+        );
     }
 
     /**************************************************************************
