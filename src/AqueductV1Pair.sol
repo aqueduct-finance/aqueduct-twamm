@@ -46,6 +46,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     mapping(address => uint256) public userStartingCumulatives1;
     uint112 private _totalSwappedFunds0;
     uint112 private _totalSwappedFunds1;
+    mapping(address => uint256) public userBalances0;
+    mapping(address => uint256) public userBalances1;
 
     // superfluid
     using CFAv1Library for CFAv1Library.InitData;
@@ -710,6 +712,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             returnedBalance = UQ160x96.decode(
                 uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[msg.sender])
             );
+            returnedBalance += userBalances1[msg.sender]; // add stored balance
+            userBalances1[msg.sender] = 0;
 
             userStartingCumulatives1[msg.sender] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
@@ -726,6 +730,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             returnedBalance = UQ160x96.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
             );
+            returnedBalance += userBalances0[msg.sender]; // add stored balance
+            userBalances0[msg.sender] = 0;
 
             userStartingCumulatives0[msg.sender] = twap0CumulativeLast;
             _totalSwappedFunds0 -= SafeCast.toUint112(returnedBalance);
@@ -844,18 +850,16 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
                 uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[user])
             );
 
-            if (balance1 > 0) _safeTransfer(_token1, user, balance1);
+            if (balance1 > 0) userBalances1[user] += balance1;
             userStartingCumulatives1[user] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
-            _totalSwappedFunds1 -= SafeCast.toUint112(balance1);
         } else {
             uint256 balance0 = UQ160x96.decode(
                 uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[user])
             );
 
-            if (balance0 > 0) _safeTransfer(_token0, user, balance0);
+            if (balance0 > 0) userBalances0[user] += balance0;
             userStartingCumulatives0[user] = twap0CumulativeLast;
-            _totalSwappedFunds0 -= SafeCast.toUint112(balance0);
         }
 
         // subtract locked funds that are not part of the reserves

@@ -761,6 +761,7 @@ describe("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+        await pair.retrieveFunds(token1.address);
         expect(
             BigNumber.from(
                 await token1.balanceOf({
@@ -882,6 +883,7 @@ describe("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+        await pair.retrieveFunds(token0.address);
         expect(
             BigNumber.from(
                 await token0.balanceOf({
