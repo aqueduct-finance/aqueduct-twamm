@@ -11,7 +11,6 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Framework } from "@superfluid-finance/sdk-core";
 import { deployTestFramework } from "@superfluid-finance/ethereum-contracts/dev-scripts/deploy-test-framework";
 import TestToken from "@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json";
-// import { getSuperAppRegistrationKey } from "./shared/impersonateSuperAppRegistration";
 
 let sfDeployer;
 let contractsFramework: any;
@@ -133,7 +132,7 @@ describe("AqueductV1Pair", () => {
         const token0 = tokenA.address === token0Address ? tokenA : tokenB;
         const token1 = tokenA.address === token0Address ? tokenB : tokenA;
 
-        // deploy routers
+        // deploy router
         const AqueductV1Router = await ethers.getContractFactory("AqueductV1Router");
         const router = await AqueductV1Router.deploy(factory.address, contractsFramework.host, flowScheduler.address);
 
@@ -174,7 +173,7 @@ describe("AqueductV1Pair", () => {
     }
 
     it.only("twap:retrieve_funds_token0_automation", async () => {
-        const { pair, wallet, token0, token1, router, flowScheduler } = await loadFixture(fixture);
+        const { pair, wallet, token0, token1, flowScheduler } = await loadFixture(fixture);
 
         const token0Amount = expandTo18Decimals(10);
         const token1Amount = expandTo18Decimals(10);
@@ -197,46 +196,27 @@ describe("AqueductV1Pair", () => {
 
         // create delete flow schedule
         const endDate = (await ethers.provider.getBlock("latest")).timestamp + 20;
-        console.log("Wallet", wallet.address);
-        console.log("Router", router.address);
-        console.log(
-            token0.address,
-            wallet.address,
-            pair.address,
-            0,
-            0,
-            0,
-            endDate,
-            ethers.utils.hexlify(0),
-            ethers.utils.hexlify(0)
-        );
 
-        // await expect(router.connect(wallet).createFlowSchedule(token0.address, wallet.address, endDate, pair.address))
-        //     .to.emit(flowScheduler, "FlowScheduleCreated")
-        //     .withArgs(
-        //         token0.address,
-        //         wallet.address,
-        //         pair.address,
-        //         0,
-        //         0,
-        //         0,
-        //         endDate,
-        //         ethers.utils.hexlify(0),
-        //         ethers.utils.hexlify(0)
-        //     );
-        await flowScheduler
-            .connect(wallet)
-            .createFlowSchedule(
-                token0.address,
-                pair.address,
-                0,
-                0,
-                0,
-                0,
-                endDate,
-                ethers.utils.arrayify("0x"),
-                ethers.utils.arrayify("0x")
-            );
+        await expect(
+            flowScheduler
+                .connect(wallet)
+                .createFlowSchedule(token0.address, pair.address, 0, 0, 0, 0, endDate, "0x", "0x")
+        )
+            .to.emit(flowScheduler, "FlowScheduleCreated")
+            .withArgs(token0.address, wallet.address, pair.address, 0, 0, 0, endDate, 0, "0x");
+
+        await token0
+            .approve({
+                receiver: flowScheduler.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+
+        await token0
+            .authorizeFlowOperatorWithFullControl({
+                flowOperator: flowScheduler.address,
+            })
+            .exec(wallet);
 
         // skip ahead
         await delay(600);
@@ -253,7 +233,6 @@ describe("AqueductV1Pair", () => {
         ).to.be.equal(baseToken1Balance);
         let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
         let nextBlockTime = latestTime + 10;
-        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
 
         const flowSchedule = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
@@ -261,9 +240,14 @@ describe("AqueductV1Pair", () => {
 
         const userData = ethers.utils.arrayify("0x");
         expect(latestTime).to.be.greaterThan(endDate);
+        expect(latestTime).to.be.greaterThan(flowSchedule.endDate);
 
-        const success = await flowScheduler.executeDeleteFlow(token0.address, wallet.address, pair.address, userData);
-        expect(success).to.be.true;
+        await expect(
+            flowScheduler.connect(wallet2).executeDeleteFlow(token0.address, wallet.address, pair.address, userData)
+        ).to.emit(flowScheduler, "DeleteFlowExecuted");
+
+        const flowSchedule2 = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
+        console.log(flowSchedule2);
 
         // retrieve funds
         // await pair.retrieveFunds(token1.address);
@@ -891,6 +875,7 @@ describe("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+        await pair.retrieveFunds(token1.address);
         expect(
             BigNumber.from(
                 await token1.balanceOf({
@@ -1012,6 +997,7 @@ describe("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+        await pair.retrieveFunds(token0.address);
         expect(
             BigNumber.from(
                 await token0.balanceOf({
@@ -1066,7 +1052,9 @@ describe("AqueductV1Pair", () => {
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
 
         // retrieve funds
-        await pair.retrieveFunds(token1.address);
+        await expect(pair.retrieveFunds(token1.address))
+            .to.emit(pair, "RetrieveFunds")
+            .withArgs(token1.address, wallet.address, expectedAmountsOut.balance1);
 
         expect(
             BigNumber.from(
@@ -1122,7 +1110,9 @@ describe("AqueductV1Pair", () => {
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
 
         // retrieve funds
-        await pair.retrieveFunds(token0.address);
+        await expect(pair.retrieveFunds(token0.address))
+            .to.emit(pair, "RetrieveFunds")
+            .withArgs(token0.address, wallet.address, expectedAmountsOut.balance0);
 
         expect(
             BigNumber.from(
