@@ -1108,7 +1108,7 @@ describe("AqueductV1Pair", () => {
         //////////////////////////////////////////////////////////
         //                                                      //
         //    using approximation:                              //
-        //    a = √(k * (A + (r_A * dt)) / (B + (r_B * dt)))    //
+        //    a = B * (A + (r_A * dt)) / (B + (r_B * dt))       //
         //                                                      //
         //////////////////////////////////////////////////////////
         const checkDynamicReservesParadigmApprox = async (dt: number) => {
@@ -1119,7 +1119,7 @@ describe("AqueductV1Pair", () => {
             const totalFlowB = (parseFloat(flowRate1.toString()) * (10000 - UPPER_FEE)) / 10000;
             const k = poolReserveA * poolReserveB;
 
-            const a = Math.sqrt((k * (poolReserveA + totalFlowA * dt)) / (poolReserveB + totalFlowB * dt));
+            const a = poolReserveB * (poolReserveA + (totalFlowA * dt)) / (poolReserveB + (totalFlowB * dt));
             const b = k / a;
 
             expect(

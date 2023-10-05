@@ -240,43 +240,19 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 currentReserve1
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
         // use approximation:
-        // reserve0 = sqrt( k * (reserve0 + totalAmountStreamed0) / (reserve1 + totalAmountStreamed1) )
+        // reserve0 = reserve1 * (reserve0 + totalAmountStreamed0) / (reserve1 + totalAmountStreamed1)
         uint112 reserveAmountSinceTime0 = _calculateReserveAmountSinceTime(totalFlow0, timeElapsed);
         uint112 reserveAmountSinceTime1 = _calculateReserveAmountSinceTime(totalFlow1, timeElapsed);
 
         // if totalFlow1 is larger than totalFlow0, need to calculate
         // reserve1 first to prevent reserve0 from possibly evaluating to 0
         if (totalFlow0 > totalFlow1) {
-            uint256 result = _overflowResistantReserveCalc(
-                _kLast,
-                currentReserve0 + reserveAmountSinceTime0,
-                currentReserve1 + reserveAmountSinceTime1
-            );
-            reserve0 = SafeCast.toUint112(Math.sqrt(result));
+            reserve0 = SafeCast.toUint112(uint256(currentReserve1) * (currentReserve0 + reserveAmountSinceTime0) / (currentReserve1 + reserveAmountSinceTime1));
             reserve1 = SafeCast.toUint112(_kLast / reserve0);
         } else {
-            uint256 result = _overflowResistantReserveCalc(
-                _kLast,
-                currentReserve1 + reserveAmountSinceTime1,
-                currentReserve0 + reserveAmountSinceTime0
-            );
-            reserve1 = SafeCast.toUint112(Math.sqrt(result));
+            reserve1 = SafeCast.toUint112(uint256(currentReserve0) * (currentReserve1 + reserveAmountSinceTime1) / (currentReserve0 + reserveAmountSinceTime0));
             reserve0 = SafeCast.toUint112(_kLast / reserve1);
         }
-    }
-
-    /**
-     * @dev computes a * b / c in a way that is overflow resistant
-     */
-    function _overflowResistantReserveCalc(uint256 a, uint256 b, uint256 c) internal pure returns (uint256 result) {
-        uint256 q1 = a / c;
-        uint256 r1 = a % c;
-        uint256 q2 = b / c;
-        uint256 r2 = b % c;
-
-        result = q1 * b;
-        result += r1 * q2;
-        result += (r1 * r2) / c;
     }
 
     /**
