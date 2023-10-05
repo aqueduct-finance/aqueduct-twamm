@@ -1119,7 +1119,7 @@ describe("AqueductV1Pair", () => {
             const totalFlowB = (parseFloat(flowRate1.toString()) * (10000 - UPPER_FEE)) / 10000;
             const k = poolReserveA * poolReserveB;
 
-            const a = poolReserveB * (poolReserveA + (totalFlowA * dt)) / (poolReserveB + (totalFlowB * dt));
+            const a = (poolReserveB * (poolReserveA + totalFlowA * dt)) / (poolReserveB + totalFlowB * dt);
             const b = k / a;
 
             expect(

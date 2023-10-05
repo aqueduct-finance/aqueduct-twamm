@@ -247,10 +247,16 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // if totalFlow1 is larger than totalFlow0, need to calculate
         // reserve1 first to prevent reserve0 from possibly evaluating to 0
         if (totalFlow0 > totalFlow1) {
-            reserve0 = SafeCast.toUint112(uint256(currentReserve1) * (currentReserve0 + reserveAmountSinceTime0) / (currentReserve1 + reserveAmountSinceTime1));
+            reserve0 = SafeCast.toUint112(
+                (uint256(currentReserve1) * (currentReserve0 + reserveAmountSinceTime0)) /
+                    (currentReserve1 + reserveAmountSinceTime1)
+            );
             reserve1 = SafeCast.toUint112(_kLast / reserve0);
         } else {
-            reserve1 = SafeCast.toUint112(uint256(currentReserve0) * (currentReserve1 + reserveAmountSinceTime1) / (currentReserve0 + reserveAmountSinceTime0));
+            reserve1 = SafeCast.toUint112(
+                (uint256(currentReserve0) * (currentReserve1 + reserveAmountSinceTime1)) /
+                    (currentReserve0 + reserveAmountSinceTime0)
+            );
             reserve0 = SafeCast.toUint112(_kLast / reserve1);
         }
     }
