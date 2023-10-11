@@ -23,8 +23,7 @@ import {IERC20} from "./interfaces/IERC20.sol";
 
 import "hardhat/console.sol";
 
-// contract AqueductV1Router is IAqueductV1Router {
-    contract AqueductV1Router is IAqueductV1Router, SuperAppBase {
+contract AqueductV1Router is IAqueductV1Router, SuperAppBase {
     using SuperTokenV1Library for ISuperToken;
 
     address public immutable override factory;
@@ -38,13 +37,14 @@ import "hardhat/console.sol";
     IConstantFlowAgreementV1 public immutable cfa;
     IFlowScheduler public immutable flowScheduler;
 
+    uint256 public streamScheduleMinimumFee = 1 ether; // 1 MATIC
+
     modifier ensure(uint256 deadline) {
         if (deadline < block.timestamp) revert ROUTER_EXPIRED();
         _;
     }
 
-    // constructor(address _factory, ISuperfluid _host, address _flowScheduler) {
-        constructor(address _factory, ISuperfluid _host, address _flowScheduler, string memory _registrationKey) {
+    constructor(address _factory, ISuperfluid _host, address _flowScheduler, string memory _registrationKey) {
         assert(address(_factory) != address(0));
         assert(address(_host) != address(0));
         assert(address(_flowScheduler) != address(0));
@@ -55,11 +55,11 @@ import "hardhat/console.sol";
         cfaV1 = CFAv1Library.InitData(_host, cfa);
         flowScheduler = IFlowScheduler(_flowScheduler);
 
-        // uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
-        //                     SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
-        //                     SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
-        //                     SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
-        // host.registerAppWithKey(configWord, _registrationKey);
+        uint256 configWord = SuperAppDefinitions.APP_LEVEL_FINAL |
+            SuperAppDefinitions.BEFORE_AGREEMENT_CREATED_NOOP |
+            SuperAppDefinitions.BEFORE_AGREEMENT_UPDATED_NOOP |
+            SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
+        host.registerAppWithKey(configWord, _registrationKey);
     }
 
     // **** ADD LIQUIDITY ****
@@ -147,126 +147,6 @@ import "hardhat/console.sol";
         (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
     }
 
-    uint256 public streamScheduleMinimumFee = 1 ether; // 1 MATIC
-
-    // TODO: add permissions
-    function setStreamScheduleMinimumFee(uint256 fee) public {
-        streamScheduleMinimumFee = fee;
-    }
-
-    error ROUTER_STREAM_FEE_TOO_LOW();
-    error PAIR_SUPPORT_ONLY_ONE_HOST();
-
-    function calculateFee(address superToken, address sender, uint256 endDate, int96 inflowRate) internal {
-        uint256 currentTimestamp = block.timestamp;
-        uint256 streamDuration = endDate - currentTimestamp;
-        uint256 feeFlowRate = (uint256(uint96(inflowRate)) * 100) / 10000; // 1%
-
-        if (feeFlowRate * streamDuration < streamScheduleMinimumFee) {
-            revert ROUTER_STREAM_FEE_TOO_LOW();
-        }
-
-        // (bool success, bytes memory data) =
-        // superToken.call(abi.encodeWithSelector(IERC20.transferFrom.selector, address(this), value));
-        // if (!success && (data.length != 0 || !abi.decode(data, (bool)))) revert PAIR_TRANSFER_FAILED();
-    }
-
-    // **** STREAM SCHEDULING FUNCTIONS ****
-    function createFlowSchedule(address superToken, address sender, uint256 endDate, address pairAddress, int96 inflowRate) public {
-        if (endDate <= block.timestamp) revert STREAM_END_DATE_BEFORE_NOW();
-
-        calculateFee(superToken, sender, endDate, inflowRate);
-
-        // console.log("about to grant permissions");
-        // // _grantFlowOperatorPermissions(superToken, address(flowScheduler));
-        // host.callAgreement(
-        //     cfa,
-        //     abi.encodeCall(
-        //         cfa.updateFlowOperatorPermissions,
-        //         (
-        //             ISuperToken(superToken),
-        //             address(flowScheduler),
-        //             FlowOperatorDefinitions.AUTHORIZE_FULL_CONTROL,
-        //             type(int96).max,
-        //             new bytes(0)
-        //         )
-        //     ),
-        //     new bytes(0)
-        // );
-        // console.log("Permissions granted");
-
-        // bytes memory userData = abi.encode(sender);
-
-        // host.callAppActionWithContext(
-        //     ISuperApp(address(flowScheduler)),
-        //     abi.encodeCall(
-        //         flowScheduler.createFlowSchedule,
-        //         (
-        //             ISuperToken(superToken),
-        //             pairAddress, // stream receiver
-        //             uint32(0), // start date
-        //             uint32(0), // start date max delay
-        //             int96(0), // flow rate
-        //             uint256(0), // start amount
-        //             uint32(endDate),
-        //             userData,
-        //             new bytes(0)
-        //         )
-        //     ),
-        //     new bytes(0)
-        // );
-
-        // flowScheduler.createFlowSchedule(
-        //     ISuperToken(superToken),
-        //     pairAddress, // stream receiver
-        //     uint32(0), // start date
-        //     uint32(0), // start date max delay
-        //     int96(0), // flow rate
-        //     uint256(0), // start amount
-        //     uint32(endDate),
-        //     userData,
-        //     new bytes(0)
-        // );
-    }
-
-    /**
-     * @param flowSuperToken Super token address
-     * @param flowOperator The permission grantee address
-     */
-    // function _grantFlowOperatorPermissions(address flowSuperToken, address flowOperator) internal {
-    //     host.callAgreement(
-    //         cfa,
-    //         abi.encodeCall(
-    //             cfa.updateFlowOperatorPermissions,
-    //             (
-    //                 ISuperToken(flowSuperToken),
-    //                 flowOperator,
-    //                 4, // bitmask representation of delete
-    //                 0, // flow rate allowance
-    //                 new bytes(0) // ctx
-    //             )
-    //         ),
-    //         // "0x"
-    //         new bytes(0)
-    //     );
-    // }
-    function _grantFlowOperatorPermissions(address flowSuperToken, address flowOperator) internal {
-        host.callAgreement(
-            cfa,
-            abi.encodeCall(
-                cfa.updateFlowOperatorPermissions,
-                (
-                    ISuperToken(flowSuperToken),
-                    flowOperator,
-                    FlowOperatorDefinitions.AUTHORIZE_FULL_CONTROL,
-                    type(int96).max,
-                    new bytes(0)
-                )
-            ),
-            new bytes(0)
-        );
-    }
-
     // **** LIBRARY FUNCTIONS ****
     function quote(
         uint256 amountA,
@@ -306,18 +186,37 @@ import "hardhat/console.sol";
         return AqueductV1Library.getAmountsIn(factory, amountOut, path);
     }
 
-    function _handleCallback(ISuperToken _superToken, bytes memory _ctx) internal returns (int96, address) {
+    // **** STREAM CANCELLATION FUNCTIONS ****
+    // TODO: add permissions
+    function setStreamScheduleMinimumFee(uint256 fee) public {
+        streamScheduleMinimumFee = fee;
+    }
+
+    function _handleCallback(ISuperToken _superToken, bytes memory _ctx) internal view returns (int96, address) {
+        console.log("call failing on following line");
         ISuperfluid.Context memory context = host.decodeCtx(_ctx);
+        console.log("NOT REACHING HERE");
         (uint256 endDate, address pair) = abi.decode(context.userData, (uint256, address));
         int96 inflowRate = _superToken.getFlowRate(context.msgSender, address(this));
 
-        if (endDate != 0) {
-            createFlowSchedule(address(_superToken), context.msgSender, endDate, pair, inflowRate);
+        if (endDate > block.timestamp) {
+            uint256 currentTimestamp = block.timestamp;
+            uint256 streamDuration = endDate - currentTimestamp;
+            uint256 feeFlowRate = (uint256(uint96(inflowRate)) * 100) / 10000; // 1%
+
+            if (feeFlowRate * streamDuration < streamScheduleMinimumFee) {
+                revert ROUTER_STREAM_FEE_TOO_LOW();
+            } else {
+                // emit event
+            }
+        } else {
+            revert STREAM_END_DATE_BEFORE_NOW();
         }
 
         return ((inflowRate * 99), pair);
     }
 
+    // **** SUPERFLUID CALLBACKS ****
     function afterAgreementCreated(
         ISuperToken _superToken,
         address, //_agreementClass,
@@ -326,16 +225,16 @@ import "hardhat/console.sol";
         bytes calldata _cbdata,
         bytes calldata _ctx
     ) external override onlyHost returns (bytes memory newCtx) {
+        // TODO: manage accounting for fees in this contract
         (int96 newFlowRate, address pair) = _handleCallback(_superToken, newCtx);
         newCtx = _ctx;
 
-        // TODO: manage accounting for fees in this contract
-        // if (_superToken.getFlowRate(address(this), pair) == 0) {
-        //     console.log(2);
-        //     newCtx = _superToken.createFlowWithCtx(pair, newFlowRate, newCtx);
-        // } else {
-        //     newCtx = _superToken.updateFlowWithCtx(pair, newFlowRate, newCtx);
-        // }
+        // TODO: handle existing flow into pair contract
+        if (_superToken.getFlowRate(address(this), pair) == 0) {
+            newCtx = _superToken.createFlowWithCtx(pair, newFlowRate, newCtx);
+        } else {
+            newCtx = _superToken.updateFlowWithCtx(pair, newFlowRate, newCtx);
+        }
     }
 
     function afterAgreementUpdated(
@@ -346,7 +245,8 @@ import "hardhat/console.sol";
         bytes calldata _cbdata,
         bytes calldata _ctx
     ) external override onlyHost returns (bytes memory newCtx) {
-        // Ensure check is done on fee otherwise user could update stream to lower amount and
+        // TODO:
+        // Ensure check is done on fee otherwise user could update stream to lower amount and get a cheaper fee
         newCtx = _ctx;
     }
 
@@ -358,6 +258,7 @@ import "hardhat/console.sol";
         bytes calldata _cbdata,
         bytes calldata _ctx
     ) external override onlyHost returns (bytes memory newCtx) {
+        // TODO:
         // Ensure doesn't revert
         // cancel stream schedule
         newCtx = _ctx;

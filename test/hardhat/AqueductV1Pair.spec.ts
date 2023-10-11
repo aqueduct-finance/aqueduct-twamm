@@ -3,13 +3,13 @@ import { BigNumber, constants as ethconst, Contract } from "ethers";
 import { ethers, network } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
-import { expandTo18Decimals, encodePrice } from "./shared/utilities";
+import { expandTo18Decimals } from "./shared/utilities";
 import { AqueductV1Pair } from "../../typechain-types";
 import FlowSchedulerArtifact from "./../../artifacts/src/test/FlowScheduler.sol/FlowScheduler.json";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { Framework, ISuperToken, SuperToken } from "@superfluid-finance/sdk-core";
+import { Framework } from "@superfluid-finance/sdk-core";
 import { deployTestFramework } from "@superfluid-finance/ethereum-contracts/dev-scripts/deploy-test-framework";
 import TestToken from "@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json";
 
@@ -178,200 +178,6 @@ describe("AqueductV1Pair", () => {
             flowScheduler,
         };
     }
-
-    it("twap:retrieve_funds_token0_automation", async () => {
-        const { pair, wallet, token0, token1, flowScheduler } = await loadFixture(fixture);
-
-        const token0Amount = expandTo18Decimals(10);
-        const token1Amount = expandTo18Decimals(10);
-        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
-
-        // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getReserves();
-        expect(realTimeReserves.reserve0).to.equal(token0Amount);
-        expect(realTimeReserves.reserve1).to.equal(token1Amount);
-
-        // create a stream
-        const flowRate = BigNumber.from("1000000000");
-        const createFlowOperation = token0.createFlow({
-            sender: wallet.address,
-            receiver: pair.address,
-            flowRate: flowRate,
-        });
-        const txnResponse = await createFlowOperation.exec(wallet);
-        await txnResponse.wait();
-
-        // create delete flow schedule
-        const endDate = (await ethers.provider.getBlock("latest")).timestamp + 20;
-
-        await expect(
-            flowScheduler
-                .connect(wallet)
-                .createFlowSchedule(token0.address, pair.address, 0, 0, 0, 0, endDate, "0x", "0x")
-        )
-            .to.emit(flowScheduler, "FlowScheduleCreated")
-            .withArgs(token0.address, wallet.address, pair.address, 0, 0, 0, endDate, 0, "0x");
-
-        await token0
-            .authorizeFlowOperatorWithFullControl({
-                flowOperator: flowScheduler.address,
-            })
-            .exec(wallet);
-
-        // skip ahead
-        await delay(600);
-
-        // check that correct swapped balance is withdrawn
-        const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
-        expect(
-            BigNumber.from(
-                await token1.balanceOf({
-                    account: wallet.address,
-                    providerOrSigner: ethers.provider,
-                })
-            )
-        ).to.be.equal(baseToken1Balance);
-        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
-        let nextBlockTime = latestTime + 10;
-        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
-
-        const flowSchedule = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
-        console.log(flowSchedule);
-
-        const userData = ethers.utils.arrayify("0x");
-        expect(latestTime).to.be.greaterThan(endDate);
-        expect(latestTime).to.be.greaterThan(flowSchedule.endDate);
-
-        await expect(
-            flowScheduler.connect(wallet2).executeDeleteFlow(token0.address, wallet.address, pair.address, userData)
-        ).to.emit(flowScheduler, "DeleteFlowExecuted");
-
-        const flowSchedule2 = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
-        console.log(flowSchedule2);
-
-        // retrieve funds
-        // await pair.retrieveFunds(token1.address);
-
-        // expect(
-        //     BigNumber.from(
-        //         await token1.balanceOf({
-        //             account: wallet.address,
-        //             providerOrSigner: ethers.provider,
-        //         })
-        //     )
-        // ).to.be.equal(baseToken1Balance.add(expectedAmountsOut.balance1));
-
-        // const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
-        // expect(newExpectedAmountsOut.balance1).to.be.equal(BigNumber.from(0));
-    });
-
-    it.only("twap:automation with router", async () => {
-        const { pair, wallet, token0, token1, router, flowScheduler } = await loadFixture(fixture);
-
-        const token0Amount = expandTo18Decimals(10);
-        const token1Amount = expandTo18Decimals(10);
-        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
-
-        // check initial reserves (shouldn't have changed)
-        let realTimeReserves = await pair.getReserves();
-        expect(realTimeReserves.reserve0).to.equal(token0Amount);
-        expect(realTimeReserves.reserve1).to.equal(token1Amount);
-
-        const now = Math.floor(Date.now() / 1000);
-        const endDate = now + 1000000;
-        const pairAddress = pair.address;
-        const userData = ethers.utils.defaultAbiCoder.encode(["uint256", "address"], [endDate, pairAddress]);
-
-        const flowRate = BigNumber.from("1000000000");
-
-        const timeDifference = endDate - now;
-        const minFeeAmount = flowRate.mul(BigNumber.from(timeDifference));
-
-        const updateFlowPermissionsOperation = token0.updateFlowOperatorPermissions({
-            flowOperator: flowScheduler.address,
-            permissions: 7,
-            flowRateAllowance: "0",
-        });
-
-        const superAppInterface = new ethers.utils.Interface(FlowSchedulerArtifact.abi);
-        const callData = superAppInterface.encodeFunctionData("createFlowSchedule", [
-            token0.address,
-            pair.address,
-            0,
-            0,
-            0,
-            0,
-            endDate,
-            "0x",
-            "0x",
-        ]);
-        const createFlowScheduleOperation = sf.host.callAppAction(flowScheduler.address, callData);
-
-        const createFlowOperation = token0.createFlow({
-            sender: wallet.address,
-            receiver: router.address,
-            flowRate: flowRate,
-            userData: userData,
-        });
-
-        const batchCall = sf.batchCall([
-            updateFlowPermissionsOperation,
-            createFlowScheduleOperation,
-            createFlowOperation,
-        ]);
-        const txnResponse = await batchCall.exec(wallet);
-
-        // const txnResponse = await createFlowOperation.exec(wallet, 2);
-        await txnResponse.wait();
-
-        // // create delete flow schedule
-        // const endDate = (await ethers.provider.getBlock("latest")).timestamp + 20;
-
-        // await expect(
-        //     flowScheduler
-        //         .connect(wallet)
-        //         .createFlowSchedule(token0.address, pair.address, 0, 0, 0, 0, endDate, "0x", "0x")
-        // )
-        //     .to.emit(flowScheduler, "FlowScheduleCreated")
-        //     .withArgs(token0.address, wallet.address, pair.address, 0, 0, 0, endDate, 0, "0x");
-
-        // await token0
-        //     .authorizeFlowOperatorWithFullControl({
-        //         flowOperator: flowScheduler.address,
-        //     })
-        //     .exec(wallet);
-
-        // // skip ahead
-        // await delay(600);
-
-        // // check that correct swapped balance is withdrawn
-        // const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
-        // expect(
-        //     BigNumber.from(
-        //         await token1.balanceOf({
-        //             account: wallet.address,
-        //             providerOrSigner: ethers.provider,
-        //         })
-        //     )
-        // ).to.be.equal(baseToken1Balance);
-        // let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
-        // let nextBlockTime = latestTime + 10;
-        // await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
-
-        // const flowSchedule = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
-        // console.log(flowSchedule);
-
-        // // const userData = ethers.utils.arrayify("0x");
-        // expect(latestTime).to.be.greaterThan(endDate);
-        // expect(latestTime).to.be.greaterThan(flowSchedule.endDate);
-
-        // await expect(
-        //     flowScheduler.connect(wallet2).executeDeleteFlow(token0.address, wallet.address, pair.address, userData)
-        // ).to.emit(flowScheduler, "DeleteFlowExecuted");
-
-        // const flowSchedule2 = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
-        // console.log(flowSchedule2);
-    });
 
     it("mint", async () => {
         const { pair, wallet, token0, token1 } = await loadFixture(fixture);
@@ -1484,5 +1290,143 @@ describe("AqueductV1Pair", () => {
             .sub(1);
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
         await pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount, wallet.address);
+    });
+
+    it("twap:token0_automation_POC", async () => {
+        const { pair, wallet, token0, token1, flowScheduler } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // check initial reserves (shouldn't have changed)
+        let realTimeReserves = await pair.getReserves();
+        expect(realTimeReserves.reserve0).to.equal(token0Amount);
+        expect(realTimeReserves.reserve1).to.equal(token1Amount);
+
+        // create a stream
+        const flowRate = BigNumber.from("1000000000");
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        // create delete flow schedule
+        const endDate = (await ethers.provider.getBlock("latest")).timestamp + 20;
+
+        await expect(
+            flowScheduler
+                .connect(wallet)
+                .createFlowSchedule(token0.address, pair.address, 0, 0, 0, 0, endDate, "0x", "0x")
+        )
+            .to.emit(flowScheduler, "FlowScheduleCreated")
+            .withArgs(token0.address, wallet.address, pair.address, 0, 0, 0, endDate, 0, "0x");
+
+        await token0
+            .authorizeFlowOperatorWithFullControl({
+                flowOperator: flowScheduler.address,
+            })
+            .exec(wallet);
+
+        // skip ahead
+        await delay(600);
+
+        // check that correct swapped balance is withdrawn
+        const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance);
+        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        let nextBlockTime = latestTime + 10;
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+
+        const flowSchedule = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
+        console.log(flowSchedule);
+
+        const userData = ethers.utils.arrayify("0x");
+        expect(latestTime).to.be.greaterThan(endDate);
+        expect(latestTime).to.be.greaterThan(flowSchedule.endDate);
+
+        await expect(
+            flowScheduler.connect(wallet2).executeDeleteFlow(token0.address, wallet.address, pair.address, userData)
+        ).to.emit(flowScheduler, "DeleteFlowExecuted");
+
+        const flowSchedule2 = await flowScheduler.getFlowSchedule(token0.address, wallet.address, pair.address);
+        console.log(flowSchedule2);
+    });
+
+    it.only("twap:automation with router", async () => {
+        const { pair, wallet, token0, token1, router, flowScheduler } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // check initial reserves (shouldn't have changed)
+        let realTimeReserves = await pair.getReserves();
+        expect(realTimeReserves.reserve0).to.equal(token0Amount);
+        expect(realTimeReserves.reserve1).to.equal(token1Amount);
+
+        const now = Math.floor(Date.now() / 1000);
+        const endDate = now + 1000000;
+        const pairAddress = pair.address;
+        const userData = ethers.utils.defaultAbiCoder.encode(["uint256", "address"], [endDate, pairAddress]);
+
+        const flowRate = BigNumber.from("1000000000");
+
+        const timeDifference = endDate - now;
+        const minFeeAmount = flowRate.mul(BigNumber.from(timeDifference));
+
+        // updateFlowPermissionsOperation
+        const updateFlowPermissionsOperation = token0.updateFlowOperatorPermissions({
+            flowOperator: flowScheduler.address,
+            permissions: 7,
+            flowRateAllowance: "0",
+        });
+
+        // createFlowScheduleOperation
+        const superAppInterface = new ethers.utils.Interface(FlowSchedulerArtifact.abi);
+        const callData = superAppInterface.encodeFunctionData("createFlowSchedule", [
+            token0.address,
+            pair.address,
+            0,
+            0,
+            0,
+            0,
+            endDate,
+            "0x",
+            "0x",
+        ]);
+        const createFlowScheduleOperation = sf.host.callAppAction(flowScheduler.address, callData);
+
+        // createFlowOperation
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: router.address,
+            flowRate: flowRate,
+            userData: userData,
+            overrides: { gasLimit: 10000000 },
+        });
+
+        const batchCall = sf.batchCall([
+            updateFlowPermissionsOperation,
+            createFlowScheduleOperation,
+            createFlowOperation,
+        ]);
+
+        // const txnResponse = await batchCall.exec(wallet);
+        const txnResponse = await createFlowOperation.exec(wallet);
+
+        await txnResponse.wait();
+
+        // TODO: create delete flow schedule and add assertions
     });
 });
