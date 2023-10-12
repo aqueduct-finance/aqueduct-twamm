@@ -124,7 +124,13 @@ contract AqueductV1Auction is IAqueductV1Auction {
         uint256 bidValue = bid;
         (reserve0, reserve1, ) = IAqueductV1Pair(pair).getReserves();
         if (token == token1) {
-            bidValue = (bid * reserve0) / reserve1;
+            if (auction.token == token0) {
+                bidValue = (bid * reserve0) / reserve1;
+            }
+        } else {
+            if (auction.token == token1) {
+                bidValue = (bid * reserve1) / reserve0;
+            }
         }
 
         // revert if bid's value is lte to winning bid or bid is under 0.3% of total amount
