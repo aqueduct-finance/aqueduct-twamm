@@ -15,7 +15,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { Framework } from "@superfluid-finance/sdk-core";
 import { deployTestFramework } from "../../src/test/superfluid-testbench/ethereum-contracts/dev-scripts/deploy-test-framework";
 import TestToken from "../../src/test/superfluid-testbench/ethereum-contracts/build/contracts/TestToken.json";
-import updateAccountFlowStateAbi from '../../src/test/superfluid-testbench/updateAccountFlowStateAbi.json';
+import updateAccountFlowStateAbi from "../../src/test/superfluid-testbench/updateAccountFlowStateAbi.json";
 
 let sfDeployer;
 let contractsFramework: any;
@@ -77,18 +77,8 @@ before(async function () {
 
     // deploy super tokens
     const mintLimit = ethers.constants.MaxInt256.toString();
-    await sfDeployer.frameworkDeployer.deployWrapperSuperToken(
-        "Base Token A",
-        "baseTokenA",
-        18,
-        mintLimit
-    );
-    await sfDeployer.frameworkDeployer.deployWrapperSuperToken(
-        "Base Token B",
-        "baseTokenB",
-        18,
-        mintLimit
-    );
+    await sfDeployer.frameworkDeployer.deployWrapperSuperToken("Base Token A", "baseTokenA", 18, mintLimit);
+    await sfDeployer.frameworkDeployer.deployWrapperSuperToken("Base Token B", "baseTokenB", 18, mintLimit);
 
     tokenA = await sf.loadSuperToken("baseTokenAx");
     baseTokenA = new ethers.Contract(tokenA.underlyingToken!.address, TestToken.abi, owner);
@@ -940,20 +930,34 @@ describe("AqueductV1Pair", () => {
         */
 
         // create a stream
-        const flowRate = '1';
+        const flowRate = "1";
         const createFlowOperation = token0.createFlow({
             sender: wallet.address,
             receiver: pair.address,
             flowRate: flowRate,
         });
         await createFlowOperation.exec(wallet);
-        
+
         // set net flow rates
         const fakeNetFlowRate = BigNumber.from(2).pow(95).sub(2); // max int96 - 1
         const cfaContract = new ethers.Contract(contractsFramework.cfa, updateAccountFlowStateAbi, wallet);
-        await cfaContract._updateAccountFlowState(token0.address, pair.address, fakeNetFlowRate, 0, 0, nextTime.toString());
-        await cfaContract._updateAccountFlowState(token1.address, pair.address, fakeNetFlowRate, 0, 0, nextTime.toString());
-        
+        await cfaContract._updateAccountFlowState(
+            token0.address,
+            pair.address,
+            fakeNetFlowRate,
+            0,
+            0,
+            nextTime.toString()
+        );
+        await cfaContract._updateAccountFlowState(
+            token1.address,
+            pair.address,
+            fakeNetFlowRate,
+            0,
+            0,
+            nextTime.toString()
+        );
+
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
         await network.provider.send("evm_mine");
@@ -961,11 +965,11 @@ describe("AqueductV1Pair", () => {
         // check net flows
         const netFlow0 = await token0.getNetFlow({
             account: pair.address,
-            providerOrSigner: wallet
+            providerOrSigner: wallet,
         });
         const netFlow1 = await token1.getNetFlow({
             account: pair.address,
-            providerOrSigner: wallet
+            providerOrSigner: wallet,
         });
         expect(netFlow0).to.eq(fakeNetFlowRate.add(1));
         expect(netFlow1).to.eq(fakeNetFlowRate);
@@ -975,7 +979,11 @@ describe("AqueductV1Pair", () => {
             const realTimeReserves = await pair.getReserves();
             const walletSwapBalances = await pair.getRealTimeUserBalances(wallet.address);
             const timeDiff = parseInt(walletSwapBalances.time.toString()) - nextTime;
-            const accumulator = ((parseInt(netFlow1) * timeDiff) + parseInt(token1Amount.toString()) - parseInt(realTimeReserves.reserve1.toString())) /  netFlow0;
+            const accumulator =
+                (parseInt(netFlow1) * timeDiff +
+                    parseInt(token1Amount.toString()) -
+                    parseInt(realTimeReserves.reserve1.toString())) /
+                netFlow0;
             const expectedBalance = parseInt(flowRate) * accumulator;
 
             // perfect case:          actual balance = expected balance
@@ -997,7 +1005,7 @@ describe("AqueductV1Pair", () => {
         await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
 
         // create a stream
-        const flowRate = '1000000000'; // small flowrate so that token0 reserve doesn't overflow
+        const flowRate = "1000000000"; // small flowrate so that token0 reserve doesn't overflow
         const createFlowOperation = token0.createFlow({
             sender: wallet.address,
             receiver: pair.address,
@@ -1040,7 +1048,7 @@ describe("AqueductV1Pair", () => {
         const timeDiff = maxUint32.sub(timeStart);
         await delay(parseInt(timeDiff.toString())); // this will definitely overflow because we've already delayed 1000s
         await checkBalances(true); // expect time overflow
-        
+
         // allow time to do a full cycle and exceed the initial timestamp
         await pair.sync(); // pool interaction before time delay, need this to update accumulators correctly
         await delay(timeStart);

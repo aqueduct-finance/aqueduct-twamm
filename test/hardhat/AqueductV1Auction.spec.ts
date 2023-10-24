@@ -620,14 +620,7 @@ describe("AqueductV1Auction", () => {
             .exec(other);
         const failingTx = auction
             .connect(other)
-            .placeBid(
-                token1.address,
-                pair.address,
-                smallerBid,
-                swapAmount2,
-                0,
-                ethers.constants.MaxUint256
-            );
+            .placeBid(token1.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
 
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
@@ -661,23 +654,23 @@ describe("AqueductV1Auction", () => {
         // smaller bid second in token1
         const smallerBid = largerBid.mul(token1Amount).div(token0Amount); // convert token0->token1
         const swapAmount2 = expandTo18Decimals(2);
-        const expectedOutputAmount2 = token0Amount.sub((token0Amount.mul(token1Amount)).div(token1Amount.add(swapAmount2))).sub(1);
+        const expectedOutputAmount2 = token0Amount
+            .sub(token0Amount.mul(token1Amount).div(token1Amount.add(swapAmount2)))
+            .sub(1);
         await token1
             .approve({
                 receiver: auction.address,
                 amount: ethers.constants.MaxInt256,
             })
             .exec(other);
-        const passingTx = auction
-            .connect(other)
-            .placeBid(
-                token1.address,
-                pair.address,
-                smallerBid.add(2), // make new bid 1 wei larger
-                swapAmount2,
-                0,
-                ethers.constants.MaxUint256
-            );
+        const passingTx = auction.connect(other).placeBid(
+            token1.address,
+            pair.address,
+            smallerBid.add(2), // make new bid 1 wei larger
+            swapAmount2,
+            0,
+            ethers.constants.MaxUint256
+        );
 
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
@@ -734,14 +727,7 @@ describe("AqueductV1Auction", () => {
             .exec(other);
         const failingTx = auction
             .connect(other)
-            .placeBid(
-                token0.address,
-                pair.address,
-                smallerBid,
-                swapAmount2,
-                0,
-                ethers.constants.MaxUint256
-            );
+            .placeBid(token0.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
 
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
@@ -775,23 +761,23 @@ describe("AqueductV1Auction", () => {
         // smaller bid second in token0
         const smallerBid = largerBid.mul(token0Amount).div(token1Amount); // convert token1->token0
         const swapAmount2 = expandTo18Decimals(2);
-        const expectedOutputAmount2 = token1Amount.sub((token0Amount.mul(token1Amount)).div(token0Amount.add(swapAmount2)));
+        const expectedOutputAmount2 = token1Amount.sub(
+            token0Amount.mul(token1Amount).div(token0Amount.add(swapAmount2))
+        );
         await token0
             .approve({
                 receiver: auction.address,
                 amount: ethers.constants.MaxInt256,
             })
             .exec(other);
-        const passingTx = auction
-            .connect(other)
-            .placeBid(
-                token0.address,
-                pair.address,
-                smallerBid.add(1), // make new bid 1 wei larger
-                swapAmount2,
-                expectedOutputAmount2,
-                ethers.constants.MaxUint256
-            );
+        const passingTx = auction.connect(other).placeBid(
+            token0.address,
+            pair.address,
+            smallerBid.add(1), // make new bid 1 wei larger
+            swapAmount2,
+            expectedOutputAmount2,
+            ethers.constants.MaxUint256
+        );
 
         // mine block
         await network.provider.send("evm_setAutomine", [true]);

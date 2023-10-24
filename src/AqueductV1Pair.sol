@@ -845,7 +845,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
         // get realtime reserves based on old flowrates
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
-    
+
         address _token0 = address(token0);
         address _token1 = address(token1);
 
@@ -859,9 +859,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             unchecked {
                 diff = twap1CumulativeLast - userStartingCumulatives1[user];
             }
-            uint256 balance1 = UQ160x96.decode(
-                uint256(uint96(flow0)) * diff
-            );
+            uint256 balance1 = UQ160x96.decode(uint256(uint96(flow0)) * diff);
 
             if (balance1 > 0) userBalances1[user] += balance1;
             userStartingCumulatives1[user] = twap1CumulativeLast;
@@ -872,9 +870,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             unchecked {
                 diff = twap0CumulativeLast - userStartingCumulatives0[user];
             }
-            uint256 balance0 = UQ160x96.decode(
-                uint256(uint96(flow1)) * diff
-            );
+            uint256 balance0 = UQ160x96.decode(uint256(uint96(flow1)) * diff);
 
             if (balance0 > 0) userBalances0[user] += balance0;
             userStartingCumulatives0[user] = twap0CumulativeLast;
