@@ -7,3 +7,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "src/test/superfluid-testbench"]
+	path = src/test/superfluid-testbench
+	url = https://github.com/aqueduct-finance/superfluid-testbench.git
