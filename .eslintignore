@@ -8,6 +8,7 @@ dist/
 lib/
 node_modules/
 typechain/
+src/test/superfluid-testbench/
 
 # files
 *.env
