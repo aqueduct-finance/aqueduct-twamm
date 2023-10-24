@@ -44,8 +44,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
     uint256 public twap1CumulativeLast;
     mapping(address => uint256) public userStartingCumulatives0;
     mapping(address => uint256) public userStartingCumulatives1;
-    uint112 private _totalSwappedFunds0;
-    uint112 private _totalSwappedFunds1;
+    uint256 private _totalSwappedFunds0;
+    uint256 private _totalSwappedFunds1;
     mapping(address => uint256) public userBalances0;
     mapping(address => uint256) public userBalances1;
 
@@ -161,7 +161,11 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint112 totalFlow0,
         uint112 totalFlow1
     ) internal view returns (uint112 reserve0, uint112 reserve1) {
-        uint32 timeElapsed = time - _blockTimestampLast;
+        // overflow desired
+        uint32 timeElapsed;
+        unchecked {
+            timeElapsed = time - _blockTimestampLast;
+        }
         uint256 _kLast = uint256(_reserve0) * _reserve1;
 
         if (totalFlow0 > 0 && totalFlow1 > 0 && timeElapsed > 0) {
@@ -331,19 +335,31 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint96 totalFlow0,
         uint96 totalFlow1
     ) internal view returns (uint256 _twap0CumulativeLast, uint256 _twap1CumulativeLast) {
-        uint32 timeElapsed = time - _blockTimestampLast;
+        // overflow desired
+        uint32 timeElapsed;
+        unchecked {
+            timeElapsed = time - _blockTimestampLast;
+        }
         _twap0CumulativeLast = twap0CumulativeLast;
         _twap1CumulativeLast = twap1CumulativeLast;
 
         if (totalFlow1 > 0) {
-            _twap0CumulativeLast += UQ160x96.encode((uint160(totalFlow0) * timeElapsed) + _reserve0 - reserve0).uqdiv(
+            uint256 twap0Cumulative = UQ160x96.encode((uint160(totalFlow0) * timeElapsed) + _reserve0 - reserve0).uqdiv(
                 totalFlow1
             );
+            // overflow desired
+            unchecked {
+                _twap0CumulativeLast += twap0Cumulative;
+            }
         }
         if (totalFlow0 > 0) {
-            _twap1CumulativeLast += UQ160x96.encode((uint160(totalFlow1) * timeElapsed) + _reserve1 - reserve1).uqdiv(
+            uint256 twap1Cumulative = UQ160x96.encode((uint160(totalFlow1) * timeElapsed) + _reserve1 - reserve1).uqdiv(
                 totalFlow0
             );
+            // overflow desired
+            unchecked {
+                _twap1CumulativeLast += twap1Cumulative;
+            }
         }
     }
 
@@ -452,30 +468,40 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         uint96 totalFlow1,
         uint32 time
     ) private {
-        uint32 timeElapsedSinceInputTime = time - _blockTimestampLast;
+        uint32 timeElapsedSinceInputTime;
+        // overflow desired
+        unchecked {
+            timeElapsedSinceInputTime = time - _blockTimestampLast;
+        }
 
         // update cumulatives
         // assuming reserve{0,1} are real time
         if (totalFlow1 > 0) {
-            twap0CumulativeLast += _getTwapCumulative(
-                reserve0,
-                _reserve0,
-                totalFlow0,
-                totalFlow1,
-                timeElapsedSinceInputTime
-            );
-            uint112 streamedAmount0 = totalFlow0 > 0 ? totalFlow0 * timeElapsedSinceInputTime : 0;
+            // overflow desired
+            unchecked {
+                twap0CumulativeLast += _getTwapCumulative(
+                    reserve0,
+                    _reserve0,
+                    totalFlow0,
+                    totalFlow1,
+                    timeElapsedSinceInputTime
+                );
+            }
+            uint256 streamedAmount0 = totalFlow0 > 0 ? uint256(totalFlow0) * timeElapsedSinceInputTime : 0;
             _totalSwappedFunds0 += streamedAmount0 + _reserve0 - reserve0;
         }
         if (totalFlow0 > 0) {
-            twap1CumulativeLast += _getTwapCumulative(
-                reserve1,
-                _reserve1,
-                totalFlow1,
-                totalFlow0,
-                timeElapsedSinceInputTime
-            );
-            uint112 streamedAmount1 = totalFlow1 > 0 ? totalFlow1 * timeElapsedSinceInputTime : 0;
+            // overflow desired
+            unchecked {
+                twap1CumulativeLast += _getTwapCumulative(
+                    reserve1,
+                    _reserve1,
+                    totalFlow1,
+                    totalFlow0,
+                    timeElapsedSinceInputTime
+                );
+            }
+            uint256 streamedAmount1 = totalFlow1 > 0 ? uint256(totalFlow1) * timeElapsedSinceInputTime : 0;
             _totalSwappedFunds1 += streamedAmount1 + _reserve1 - reserve1;
         }
     }
@@ -819,7 +845,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
 
         // get realtime reserves based on old flowrates
         (uint112 reserve0, uint112 reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
-
+    
         address _token0 = address(token0);
         address _token1 = address(token1);
 
@@ -828,16 +854,26 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // set user starting cumulative
         (address user, ) = abi.decode(_agreementData, (address, address));
         if (address(_superToken) == _token0) {
+            uint256 diff;
+            // underflow desired
+            unchecked {
+                diff = twap1CumulativeLast - userStartingCumulatives1[user];
+            }
             uint256 balance1 = UQ160x96.decode(
-                uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[user])
+                uint256(uint96(flow0)) * diff
             );
 
             if (balance1 > 0) userBalances1[user] += balance1;
             userStartingCumulatives1[user] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
         } else {
+            uint256 diff;
+            // underflow desired
+            unchecked {
+                diff = twap0CumulativeLast - userStartingCumulatives0[user];
+            }
             uint256 balance0 = UQ160x96.decode(
-                uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[user])
+                uint256(uint96(flow1)) * diff
             );
 
             if (balance0 > 0) userBalances0[user] += balance0;

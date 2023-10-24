@@ -32,7 +32,7 @@ library AqueductV1Library {
                             bytes1(0xff),
                             factory,
                             keccak256(abi.encodePacked(token0, token1)),
-                            hex"bd4ce7a56886f64145cd0bbed0cab7347143dfaf7252c320921a7aa779e9e158" // init code hash
+                            hex"3feb426d57aee98cbd5dfa47ff8775bd6d66d7a95dc267e4353a7218a1c935c8" // init code hash
                         )
                     )
                 )

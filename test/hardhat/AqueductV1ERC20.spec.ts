@@ -9,7 +9,7 @@ const TEST_AMOUNT = expandTo18Decimals(10);
 
 describe("AqueductV1ERC20", () => {
     async function fixture() {
-        const factory = await ethers.getContractFactory("ERC20");
+        const factory = await ethers.getContractFactory("src/test/ERC20.sol:ERC20");
         const token = await factory.deploy(TOTAL_SUPPLY);
         const [wallet, other] = await ethers.getSigners();
         return { token: token, wallet, other };

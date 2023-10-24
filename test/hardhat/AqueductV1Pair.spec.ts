@@ -8,9 +8,14 @@ import { AqueductV1Pair } from "../../typechain-types";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
+/*
+    NOTE - using modified version of superfluid for testing
+    We make cfa._updateAccountFlowState() public so that we can test arbitrary netFlowRate easily
+*/
 import { Framework } from "@superfluid-finance/sdk-core";
-import { deployTestFramework } from "@superfluid-finance/ethereum-contracts/dev-scripts/deploy-test-framework";
-import TestToken from "@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json";
+import { deployTestFramework } from "../../src/test/superfluid-testbench/ethereum-contracts/dev-scripts/deploy-test-framework";
+import TestToken from "../../src/test/superfluid-testbench/ethereum-contracts/build/contracts/TestToken.json";
+import updateAccountFlowStateAbi from '../../src/test/superfluid-testbench/updateAccountFlowStateAbi.json';
 
 let sfDeployer;
 let contractsFramework: any;
@@ -70,18 +75,19 @@ before(async function () {
         protocolReleaseVersion: "test",
     });
 
-    // DEPLOYING DAI and DAI wrapper super token (which will be our `spreaderToken`)
+    // deploy super tokens
+    const mintLimit = ethers.constants.MaxInt256.toString();
     await sfDeployer.frameworkDeployer.deployWrapperSuperToken(
         "Base Token A",
         "baseTokenA",
         18,
-        ethers.utils.parseEther("10000").toString()
+        mintLimit
     );
     await sfDeployer.frameworkDeployer.deployWrapperSuperToken(
         "Base Token B",
         "baseTokenB",
         18,
-        ethers.utils.parseEther("10000").toString()
+        mintLimit
     );
 
     tokenA = await sf.loadSuperToken("baseTokenAx");
@@ -90,22 +96,23 @@ before(async function () {
     tokenB = await sf.loadSuperToken("baseTokenBx");
     baseTokenB = new ethers.Contract(tokenB.underlyingToken!.address, TestToken.abi, owner);
 
-    const setupToken = async (underlyingToken: Contract, superToken: any) => {
+    // gives supertokens to an account
+    const setupToken = async (underlyingToken: Contract, superToken: any, signer: any, amount: string) => {
         // minting test token
-        await underlyingToken.mint(owner.address, ethers.utils.parseEther("10000").toString());
+        await underlyingToken.mint(signer.address, amount);
 
         // approving DAIx to spend DAI (Super Token object is not an ethers contract object and has different operation syntax)
-        await underlyingToken.approve(superToken.address, ethers.constants.MaxInt256);
-        await underlyingToken.connect(owner).approve(superToken.address, ethers.constants.MaxInt256);
+        await underlyingToken.connect(signer).approve(superToken.address, ethers.constants.MaxInt256);
+
         // Upgrading all DAI to DAIx
         const ownerUpgrade = superToken.upgrade({
-            amount: ethers.utils.parseEther("10000").toString(),
+            amount: amount,
         });
-        await ownerUpgrade.exec(owner);
+        await ownerUpgrade.exec(signer);
     };
 
-    await setupToken(baseTokenA, tokenA);
-    await setupToken(baseTokenB, tokenB);
+    await setupToken(baseTokenA, tokenA, owner, ethers.utils.parseEther("10000").toString());
+    await setupToken(baseTokenB, tokenB, owner, ethers.utils.parseEther("10000").toString());
 });
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
@@ -895,6 +902,149 @@ describe("AqueductV1Pair", () => {
 
         const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
         expect(newExpectedAmountsOut.balance0).to.be.equal(BigNumber.from(0));
+    });
+
+    /*
+        NOTE: 
+        accumulator overflow is basically impossible:
+        1. accumulators are UQ160x96 == 160 bit resolution (2^160 - 1)
+        2. netFlowRate is int96, so max netFlowRate is 2^95 - 1
+        3. find number of seconds required to overflow an accumulator:
+            (2^160 -1) / (2^95 -1) == 3.689e19 seconds == ~1.16 trillion years
+
+        tl;dr there is no way to test accumulator overflow without overflowing time many times
+        - if (time - timeStart > max uint32), balance tracking will work as long as the pool has any interaction during that period
+        - this is presumed to be acceptable because it takes around ~136 years for 'time' to cycle
+
+        thus we have two related tests:
+        1. twap:max_flowrates - tests accurate balance tracking for edge case of max flowrate of both tokens
+        2. twap:overflow_time - test single overflow of time, where the position's (time - timeStart < max uint32)
+    */
+    it("twap:max_flowrates", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        const nextTime = (await ethers.provider.getBlock("latest")).timestamp + 1000;
+
+        // Disable automining, so that these transactions are in the same block, and manually set the time
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextTime]);
+        await network.provider.send("evm_setAutomine", [false]);
+
+        /*
+            NOTE: using modified version of superfluid cfa for testing:
+            1. create a stream to set blockTimestampLast in the contract
+            2. manually change netFlowRate of both tokens to max values
+        */
+
+        // create a stream
+        const flowRate = '1';
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        await createFlowOperation.exec(wallet);
+        
+        // set net flow rates
+        const fakeNetFlowRate = BigNumber.from(2).pow(95).sub(2); // max int96 - 1
+        const cfaContract = new ethers.Contract(contractsFramework.cfa, updateAccountFlowStateAbi, wallet);
+        await cfaContract._updateAccountFlowState(token0.address, pair.address, fakeNetFlowRate, 0, 0, nextTime.toString());
+        await cfaContract._updateAccountFlowState(token1.address, pair.address, fakeNetFlowRate, 0, 0, nextTime.toString());
+        
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        // check net flows
+        const netFlow0 = await token0.getNetFlow({
+            account: pair.address,
+            providerOrSigner: wallet
+        });
+        const netFlow1 = await token1.getNetFlow({
+            account: pair.address,
+            providerOrSigner: wallet
+        });
+        expect(netFlow0).to.eq(fakeNetFlowRate.add(1));
+        expect(netFlow1).to.eq(fakeNetFlowRate);
+
+        // check balance
+        const checkBalance = async () => {
+            const realTimeReserves = await pair.getReserves();
+            const walletSwapBalances = await pair.getRealTimeUserBalances(wallet.address);
+            const timeDiff = parseInt(walletSwapBalances.time.toString()) - nextTime;
+            const accumulator = ((parseInt(netFlow1) * timeDiff) + parseInt(token1Amount.toString()) - parseInt(realTimeReserves.reserve1.toString())) /  netFlow0;
+            const expectedBalance = parseInt(flowRate) * accumulator;
+
+            // perfect case:          actual balance = expected balance
+            // never allowed:         actual balance > expected balance
+            // dust amounts allowed:  actual balance < expected balance
+            expect(parseInt(walletSwapBalances.balance1.toString()) - expectedBalance).to.be.within(-1000, 0); // within 1000 wei
+        };
+
+        await checkBalance();
+        delay(60000);
+        await checkBalance();
+    });
+
+    it("twap:overflow_time", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // create a stream
+        const flowRate = '1000000000'; // small flowrate so that token0 reserve doesn't overflow
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        const txn = await txnResponse.wait();
+        const timeStart = (await ethers.provider.getBlock(txn.blockNumber)).timestamp;
+
+        const checkBalances = async (expectTimeOverflow: boolean) => {
+            const realTimeReserves = await pair.getReserves();
+            const poolBalance1 = BigNumber.from(
+                await token1.balanceOf({
+                    account: pair.address,
+                    providerOrSigner: ethers.provider,
+                })
+            );
+            const walletSwapBalances = await pair.getRealTimeUserBalances(wallet.address);
+
+            // perfect case:          (reserve + all user balances) = poolBalance
+            // never allowed:         (reserve + all user balances) > poolBalance
+            // dust amounts allowed:  (reserve + all user balances) < poolBalance
+            expect(poolBalance1.sub(realTimeReserves.reserve1.add(walletSwapBalances.balance1))).to.be.within(0, 100);
+
+            // if time overflows, 'time' should be less than the timestamp of the first transaction
+            if (expectTimeOverflow) {
+                expect(realTimeReserves.time).to.be.lessThan(timeStart);
+            } else {
+                expect(realTimeReserves.time).to.be.greaterThanOrEqual(timeStart);
+            }
+        };
+
+        // standard balance checks
+        await checkBalances(false);
+        await delay(1000);
+        await checkBalances(false);
+
+        // overflow time
+        const maxUint32 = BigNumber.from(2).pow(32).sub(1);
+        const timeDiff = maxUint32.sub(timeStart);
+        await delay(parseInt(timeDiff.toString())); // this will definitely overflow because we've already delayed 1000s
+        await checkBalances(true); // expect time overflow
+        
+        // allow time to do a full cycle and exceed the initial timestamp
+        await pair.sync(); // pool interaction before time delay, need this to update accumulators correctly
+        await delay(timeStart);
+        await checkBalances(false); // time will be > timeStart
     });
 
     it("twap:retrieve_funds_token0", async () => {
