@@ -729,9 +729,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             unchecked {
                 diff = twap1CumulativeLast - userStartingCumulatives1[msg.sender];
             }
-            returnedBalance = UQ160x96.decode(
-                uint256(uint96(flow0)) * diff
-            );
+            returnedBalance = UQ160x96.decode(uint256(uint96(flow0)) * diff);
             returnedBalance += userBalances1[msg.sender]; // add stored balance
             userBalances1[msg.sender] = 0;
 
@@ -752,9 +750,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             unchecked {
                 diff = twap0CumulativeLast - userStartingCumulatives0[msg.sender];
             }
-            returnedBalance = UQ160x96.decode(
-                uint256(uint96(flow1)) * diff
-            );
+            returnedBalance = UQ160x96.decode(uint256(uint96(flow1)) * diff);
             returnedBalance += userBalances0[msg.sender]; // add stored balance
             userBalances0[msg.sender] = 0;
 

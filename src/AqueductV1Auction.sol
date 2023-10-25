@@ -10,7 +10,7 @@ import {IERC20} from "./interfaces/IERC20.sol";
 
 contract AqueductV1Auction is IAqueductV1Auction {
     struct Auction {
-        address token;
+        address winningBidToken;
         address winningBidderAddress;
         uint256 winningBid;
         uint256 winningSwapAmount;
@@ -106,7 +106,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         (uint112 reserve0, uint112 reserve1, ) = IAqueductV1Pair(pair).getReserves();
         if (auction.winningBid + auction.winningSwapAmount > 0) {
             // swap locked funds back
-            address oppositeToken = auction.token == token0 ? token1 : token0;
+            address oppositeToken = auction.winningBidToken == token0 ? token1 : token0;
             uint256 returnAmountOut = swap(
                 oppositeToken,
                 pair,
@@ -117,18 +117,18 @@ contract AqueductV1Auction is IAqueductV1Auction {
             );
 
             // transfer
-            _safeTransfer(auction.token, auction.winningBidderAddress, auction.winningBid + returnAmountOut);
+            _safeTransfer(auction.winningBidToken, auction.winningBidderAddress, auction.winningBid + returnAmountOut);
         }
 
         //  if token1, need to convert to token0 denominated value
         uint256 bidValue = bid;
         (reserve0, reserve1, ) = IAqueductV1Pair(pair).getReserves();
         if (token == token1) {
-            if (auction.token == token0) {
+            if (auction.winningBidToken == token0) {
                 bidValue = (bid * reserve0) / reserve1;
             }
         } else {
-            if (auction.token == token1) {
+            if (auction.winningBidToken == token1) {
                 bidValue = (bid * reserve1) / reserve0;
             }
         }
@@ -143,7 +143,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
         if (amountOut < amountOutMin) revert AUCTION_UNDER_MIN_AMOUNT_OUT();
 
         // update auction
-        auction.token = token;
+        auction.winningBidToken = token;
         auction.winningBid = bid;
         auction.winningSwapAmount = swapAmount;
         auction.lockedSwapAmountOut = amountOut;
@@ -164,12 +164,12 @@ contract AqueductV1Auction is IAqueductV1Auction {
             revert AUCTION_ALREADY_EXECUTED();
 
         // transfer bid to pool
-        _safeTransfer(auction.token, pair, auction.winningBid);
+        _safeTransfer(auction.winningBidToken, pair, auction.winningBid);
 
         // transfer locked swap to winner
         address token0 = address(IAqueductV1Pair(pair).token0());
         address token1 = address(IAqueductV1Pair(pair).token1());
-        address oppositeToken = auction.token == token0 ? token1 : token0;
+        address oppositeToken = auction.winningBidToken == token0 ? token1 : token0;
         _safeTransfer(oppositeToken, auction.winningBidderAddress, auction.lockedSwapAmountOut);
 
         // sync reserves
@@ -180,7 +180,7 @@ contract AqueductV1Auction is IAqueductV1Auction {
             auction.winningBidderAddress,
             oppositeToken,
             auction.lockedSwapAmountOut,
-            auction.token,
+            auction.winningBidToken,
             auction.winningBid
         );
 
