@@ -440,10 +440,17 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             totalFlow1
         );
 
-        // flow in is always positive
+        // underflow desired
+        uint256 diff0;
+        uint256 diff1;
+        unchecked {
+            diff0 = _twap0CumulativeLast - userStartingCumulatives0[user];
+            diff1 = _twap1CumulativeLast - userStartingCumulatives1[user];
+        }
 
-        balance0 = UQ160x96.decode(uint256(uint96(flow1)) * (_twap0CumulativeLast - userStartingCumulatives0[user]));
-        balance1 = UQ160x96.decode(uint256(uint96(flow0)) * (_twap1CumulativeLast - userStartingCumulatives1[user]));
+        // flow in is always positive
+        balance0 = UQ160x96.decode(uint256(uint96(flow1)) * diff0);
+        balance1 = UQ160x96.decode(uint256(uint96(flow0)) * diff1);
     }
 
     /**************************************************************************
@@ -717,8 +724,13 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // set user starting cumulative
         if (address(_superToken) == _token1) {
             (, int96 flow0, , ) = cfa.getFlow(token0, msg.sender, address(this));
+            uint256 diff;
+            // underflow desired
+            unchecked {
+                diff = twap1CumulativeLast - userStartingCumulatives1[msg.sender];
+            }
             returnedBalance = UQ160x96.decode(
-                uint256(uint96(flow0)) * (twap1CumulativeLast - userStartingCumulatives1[msg.sender])
+                uint256(uint96(flow0)) * diff
             );
             returnedBalance += userBalances1[msg.sender]; // add stored balance
             userBalances1[msg.sender] = 0;
@@ -735,8 +747,13 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             if (returnedBalance > 0) _safeTransfer(_token1, msg.sender, returnedBalance);
         } else {
             (, int96 flow1, , ) = cfa.getFlow(token1, msg.sender, address(this));
+            uint256 diff;
+            // underflow desired
+            unchecked {
+                diff = twap0CumulativeLast - userStartingCumulatives0[msg.sender];
+            }
             returnedBalance = UQ160x96.decode(
-                uint256(uint96(flow1)) * (twap0CumulativeLast - userStartingCumulatives0[msg.sender])
+                uint256(uint96(flow1)) * diff
             );
             returnedBalance += userBalances0[msg.sender]; // add stored balance
             userBalances0[msg.sender] = 0;
