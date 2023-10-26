@@ -108,15 +108,16 @@ before(async function () {
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3);
 
 describe("AqueductV1Pair", () => {
+    // uses TestFactory/AccumulatorOverride contracts to allow manually setting accumulators
     async function fixture() {
         const [wallet, other] = await ethers.getSigners();
 
         const factory = await (
-            await ethers.getContractFactory("AqueductV1Factory")
+            await ethers.getContractFactory("TestFactory")
         ).deploy(wallet.address, contractsFramework.host);
 
         await factory.createPair(tokenA.address, tokenB.address);
-        const pair = (await ethers.getContractFactory("AqueductV1Pair")).attach(
+        const pair = (await ethers.getContractFactory("AccumulatorOverride")).attach(
             await factory.getPair(tokenA.address, tokenB.address)
         );
         const token0Address = await pair.token0();
@@ -902,13 +903,14 @@ describe("AqueductV1Pair", () => {
         3. find number of seconds required to overflow an accumulator:
             (2^160 -1) / (2^95 -1) == 3.689e19 seconds == ~1.16 trillion years
 
-        tl;dr there is no way to test accumulator overflow without overflowing time many times
+        tl;dr there is no way to natively test accumulator overflow without overflowing time many times
         - if (time - timeStart > max uint32), balance tracking will work as long as the pool has any interaction during that period
         - this is presumed to be acceptable because it takes around ~136 years for 'time' to cycle
 
-        thus we have two related tests:
+        thus we have four related tests:
         1. twap:max_flowrates - tests accurate balance tracking for edge case of max flowrate of both tokens
-        2. twap:overflow_time - test single overflow of time, where the position's (time - timeStart < max uint32)
+        2/3. twap:accumulator_overflow{0,1} - use AccumulatorOverride.sol to inherit AqueductV1Pair and manually set accumulators
+        4. twap:overflow_time - test single overflow of time, where the position's (time - timeStart < max uint32)
     */
     it("twap:max_flowrates", async () => {
         const { pair, wallet, token0, token1 } = await loadFixture(fixture);
@@ -995,6 +997,170 @@ describe("AqueductV1Pair", () => {
         await checkBalance();
         delay(60000);
         await checkBalance();
+    });
+
+    it("twap:accumulator_overflow0", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair as AqueductV1Pair, wallet, token0Amount, token1Amount);
+
+        // manually set twap0CumulativeLast very close to max uint256
+        const flowRate = BigNumber.from("1000000000");
+        const newCumulative = ethers.constants.MaxUint256.sub(flowRate);
+        pair.setTwap0CumulativeLast(newCumulative); // difference is same as flowRate, so should overflow almost immediately
+        expect(await pair.twap0CumulativeLast()).to.be.eq(newCumulative);
+
+        // create a stream (need to stream token1 to update twap0CumulativeLast)
+        const createFlowOperation = token1.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        const checkBalances = async () => {
+            const realTimeReserves = await pair.getReserves();
+            const poolBalance0 = BigNumber.from(
+                await token0.balanceOf({
+                    account: pair.address,
+                    providerOrSigner: ethers.provider,
+                })
+            );
+            const walletSwapBalances = await pair.getRealTimeUserBalances(wallet.address);
+
+            // perfect case:          (reserve + all user balances) = poolBalance
+            // never allowed:         (reserve + all user balances) > poolBalance
+            // dust amounts allowed:  (reserve + all user balances) < poolBalance
+            expect(poolBalance0.sub(realTimeReserves.reserve0.add(walletSwapBalances.balance0))).to.be.within(0, 100);
+        };
+
+        // small delay
+        await delay(100);
+
+        // check balances
+        await checkBalances();
+
+        // twap0CumulativeLast should be less than its starting value (indicates overflow happened)
+        await pair.sync(); // call sync to update accumulators
+        expect(await pair.twap0CumulativeLast()).to.be.lt(newCumulative);
+
+        // cancel stream and check that swapped balance is withdrawn
+        const baseToken0Balance = expandTo18Decimals(10000).sub(token0Amount);
+        expect(
+            BigNumber.from(
+                await token0.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken0Balance);
+        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        let nextBlockTime = latestTime + 10;
+        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+        const deleteFlowOperation = token1.deleteFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+        });
+        const txnResponse2 = await deleteFlowOperation.exec(wallet);
+        await txnResponse2.wait();
+        await pair.retrieveFunds(token0.address);
+        expect(
+            BigNumber.from(
+                await token0.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken0Balance.add(expectedAmountsOut.balance0));
+
+        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut.balance0).to.be.equal(BigNumber.from(0));
+    });
+
+    it("twap:accumulator_overflow1", async () => {
+        const { pair, wallet, token0, token1 } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(10);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair as AqueductV1Pair, wallet, token0Amount, token1Amount);
+
+        // manually set twap0CumulativeLast very close to max uint256
+        const flowRate = BigNumber.from("1000000000");
+        const newCumulative = ethers.constants.MaxUint256.sub(flowRate);
+        pair.setTwap1CumulativeLast(newCumulative); // difference is same as flowRate, so should overflow almost immediately
+        expect(await pair.twap1CumulativeLast()).to.be.eq(newCumulative);
+
+        // create a stream (need to stream token0 to update twap1CumulativeLast)
+        const createFlowOperation = token0.createFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+            flowRate: flowRate,
+        });
+        const txnResponse = await createFlowOperation.exec(wallet);
+        await txnResponse.wait();
+
+        const checkBalances = async () => {
+            const realTimeReserves = await pair.getReserves();
+            const poolBalance1 = BigNumber.from(
+                await token1.balanceOf({
+                    account: pair.address,
+                    providerOrSigner: ethers.provider,
+                })
+            );
+            const walletSwapBalances = await pair.getRealTimeUserBalances(wallet.address);
+
+            // perfect case:          (reserve + all user balances) = poolBalance
+            // never allowed:         (reserve + all user balances) > poolBalance
+            // dust amounts allowed:  (reserve + all user balances) < poolBalance
+            expect(poolBalance1.sub(realTimeReserves.reserve1.add(walletSwapBalances.balance1))).to.be.within(0, 100);
+        };
+
+        // small delay
+        await delay(100);
+
+        // check balances
+        await checkBalances();
+
+        // twap1CumulativeLast should be less than its starting value (indicates overflow happened)
+        await pair.sync(); // call sync to update accumulators
+        expect(await pair.twap1CumulativeLast()).to.be.lt(newCumulative);
+
+        // cancel stream and check that swapped balance is withdrawn
+        const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance);
+        let latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        let nextBlockTime = latestTime + 10;
+        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+        const deleteFlowOperation = token0.deleteFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+        });
+        const txnResponse2 = await deleteFlowOperation.exec(wallet);
+        await txnResponse2.wait();
+        await pair.retrieveFunds(token1.address);
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance.add(expectedAmountsOut.balance1));
+
+        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut.balance1).to.be.equal(BigNumber.from(0));
     });
 
     it("twap:overflow_time", async () => {
