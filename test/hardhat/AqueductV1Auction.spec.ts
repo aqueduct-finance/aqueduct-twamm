@@ -583,11 +583,225 @@ describe("AqueductV1Auction", () => {
     });
 
     /*
-        auction:bid0,1 and auction:bid1,0 split into two tests:
+        auction:bid0,0, auction:bid1,1, auction:bid0,1, and auction:bid1,0 split into two tests:
         1. bid just below sufficient amount - expect revert
         2. bid exactly at sufficient amount - expect passing
         * split into two tests because expect() does not work when evm_setAutomine=false
     */
+    it("auction:bid0,0:revert", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token0 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token0 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const failingTx = auction
+            .connect(other)
+            .placeBid(token0.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        // check that first transaction revert and second didn't
+        await expect(failingTx).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
+    });
+
+    it("auction:bid0,0:pass", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token0 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token0 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = token1Amount
+            .sub(token1Amount.mul(token0Amount).div(token0Amount.add(swapAmount2)))
+            .sub(1);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const passingTx = auction.connect(other).placeBid(
+            token0.address,
+            pair.address,
+            smallerBid.add(1), // make new bid 1 wei larger
+            swapAmount2,
+            0,
+            ethers.constants.MaxUint256
+        );
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        await passingTx;
+
+        // check that the second amount is swapped
+        await expect(auction.executeWinningBid(pair.address))
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
+            .withArgs(auction.address, pair.address, smallerBid.add(1))
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
+            .withArgs(auction.address, other.address, expectedOutputAmount2)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token1.address,
+                expectedOutputAmount2,
+                token0.address,
+                smallerBid.add(1)
+            );
+    });
+
+    it("auction:bid1,1:revert", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token1 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token1 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const failingTx = auction
+            .connect(other)
+            .placeBid(token1.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        // check that first transaction revert and second didn't
+        await expect(failingTx).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
+    });
+
+    it("auction:bid1,1:pass", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token1 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token1 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = token0Amount
+            .sub(token0Amount.mul(token1Amount).div(token1Amount.add(swapAmount2)))
+            .sub(1);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const passingTx = auction.connect(other).placeBid(
+            token1.address,
+            pair.address,
+            smallerBid.add(1), // make new bid 1 wei larger
+            swapAmount2,
+            0,
+            ethers.constants.MaxUint256
+        );
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        await passingTx;
+
+        // check that the second amount is swapped
+        await expect(auction.executeWinningBid(pair.address))
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send bid to pair
+            .withArgs(auction.address, pair.address, smallerBid.add(1))
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
+            .withArgs(auction.address, other.address, expectedOutputAmount2)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token0.address,
+                expectedOutputAmount2,
+                token1.address,
+                smallerBid.add(1)
+            );
+    });
+
     it("auction:bid0,1:revert", async () => {
         const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
 
