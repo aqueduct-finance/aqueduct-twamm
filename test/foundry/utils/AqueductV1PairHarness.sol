@@ -7,12 +7,12 @@ import {ISuperfluid} from "@superfluid-finance/ethereum-contracts/contracts/inte
 contract AqueductV1PairHarness is AqueductV1Pair {
     constructor(ISuperfluid host) AqueductV1Pair() {}
 
-    function exposed_calculateFees(uint112 totalFlow, uint32 timeElapsed) external pure returns (uint112) {
+    function exposed_calculateFees(uint96 totalFlow, uint32 timeElapsed) external pure returns (uint112) {
         return _calculateFees(totalFlow, timeElapsed);
     }
 
     function exposed_calculateReserveAmountSinceTime(
-        uint112 totalFlow,
+        uint96 totalFlow,
         uint32 timeElapsed
     ) external pure returns (uint112) {
         return _calculateReserveAmountSinceTime(totalFlow, timeElapsed);
@@ -20,8 +20,8 @@ contract AqueductV1PairHarness is AqueductV1Pair {
 
     function exposed_calculateReservesBothFlows(
         uint256 _kLast,
-        uint112 totalFlow0,
-        uint112 totalFlow1,
+        uint96 totalFlow0,
+        uint96 totalFlow1,
         uint32 timeElapsed,
         uint112 _reserve0,
         uint112 _reserve1
@@ -31,7 +31,7 @@ contract AqueductV1PairHarness is AqueductV1Pair {
 
     function exposed_calculateReservesFlow0(
         uint256 _kLast,
-        uint112 totalFlow0,
+        uint96 totalFlow0,
         uint32 timeElapsed,
         uint112 _reserve0
     ) external pure returns (uint112 reserve0, uint112 reserve1) {
@@ -40,7 +40,7 @@ contract AqueductV1PairHarness is AqueductV1Pair {
 
     function exposed_calculateReservesFlow1(
         uint256 _kLast,
-        uint112 totalFlow1,
+        uint96 totalFlow1,
         uint32 timeElapsed,
         uint112 _reserve1
     ) external pure returns (uint112 reserve0, uint112 reserve1) {

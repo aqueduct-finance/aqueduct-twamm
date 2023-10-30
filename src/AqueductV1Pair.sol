@@ -141,8 +141,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return reserve1 The reserve of token1 at the specified time.
      */
     function getReservesAtTime(uint32 time) public view override returns (uint112 reserve0, uint112 reserve1) {
-        uint112 totalFlow0 = uint112(uint96(cfa.getNetFlow(token0, address(this))));
-        uint112 totalFlow1 = uint112(uint96(cfa.getNetFlow(token1, address(this))));
+        uint96 totalFlow0 = uint96(cfa.getNetFlow(token0, address(this)));
+        uint96 totalFlow1 = uint96(cfa.getNetFlow(token1, address(this)));
         (reserve0, reserve1) = _getReservesAtTime(time, totalFlow0, totalFlow1);
     }
 
@@ -158,8 +158,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      */
     function _getReservesAtTime(
         uint32 time,
-        uint112 totalFlow0,
-        uint112 totalFlow1
+        uint96 totalFlow0,
+        uint96 totalFlow1
     ) internal view returns (uint112 reserve0, uint112 reserve1) {
         // overflow desired
         uint32 timeElapsed;
@@ -202,7 +202,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @param timeElapsed The time period over which the fees are to be calculated.
      * @return fees calculated fees.
      */
-    function _calculateFees(uint112 totalFlow, uint32 timeElapsed) internal pure returns (uint112 fees) {
+    function _calculateFees(uint96 totalFlow, uint32 timeElapsed) internal pure returns (uint112 fees) {
         uint256 overflowResistantCalc = (uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000;
         fees = SafeCast.toUint112(overflowResistantCalc);
     }
@@ -216,7 +216,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      * @return reserveAmountSinceTime calculated reserve amount after applying fees.
      */
     function _calculateReserveAmountSinceTime(
-        uint112 totalFlow,
+        uint96 totalFlow,
         uint32 timeElapsed
     ) internal pure returns (uint112 reserveAmountSinceTime) {
         uint256 overflowResistantCalc = (uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000;
@@ -237,8 +237,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      */
     function _calculateReservesBothFlows(
         uint256 _kLast,
-        uint112 totalFlow0,
-        uint112 totalFlow1,
+        uint96 totalFlow0,
+        uint96 totalFlow1,
         uint32 timeElapsed,
         uint112 currentReserve0,
         uint112 currentReserve1
@@ -279,7 +279,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      */
     function _calculateReservesFlow0(
         uint256 _kLast,
-        uint112 totalFlow0,
+        uint96 totalFlow0,
         uint32 timeElapsed,
         uint112 currentReserve0
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
@@ -303,7 +303,7 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
      */
     function _calculateReservesFlow1(
         uint256 _kLast,
-        uint112 totalFlow1,
+        uint96 totalFlow1,
         uint32 timeElapsed,
         uint112 currentReserve1
     ) internal pure returns (uint112 reserve0, uint112 reserve1) {
