@@ -874,6 +874,8 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
             }
             uint256 balance1 = UQ160x96.decode(uint256(uint96(flow0)) * diff);
 
+            // calling safeTransfer() can lead to unexpected behavior and cause a revert in the callback
+            // so, just update a mapping to track balances and call retrieveFunds() separately
             if (balance1 > 0) userBalances1[user] += balance1;
             userStartingCumulatives1[user] = twap1CumulativeLast;
             // NOTICE: mismatched precision between balance calculation and totalSwappedFunds{0,1} (dust amounts)
