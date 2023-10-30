@@ -8,7 +8,7 @@ pragma solidity 0.8.19;
 
 library UQ160x96 {
     //solhint-disable-next-line state-visibility
-    uint224 constant Q96 = 2 ** 96;
+    uint256 constant Q96 = 2 ** 96;
 
     // encode a uint160 as a UQ160x96
     function encode(uint160 y) internal pure returns (uint256 z) {
