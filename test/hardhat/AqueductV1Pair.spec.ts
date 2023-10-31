@@ -565,7 +565,7 @@ describe("AqueductV1Pair", () => {
             .to.emit(pair, "Transfer")
             .withArgs(pair.address, ethconst.AddressZero, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer")
-            .withArgs(pair.address, wallet.address, expectedToken0Amount.sub(1001)) // TODO: assuming this is a rouding error (should be 1000), is this ok
+            .withArgs(pair.address, wallet.address, expectedToken0Amount.sub(1001)) // off by 1 wei, this is ok
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer")
             .withArgs(pair.address, wallet.address, expectedToken1Amount.sub(1000))
             .to.emit(pair, "Sync")
@@ -771,8 +771,6 @@ describe("AqueductV1Pair", () => {
 
         const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
         expect(newExpectedAmountsOut.balance1).to.be.equal(BigNumber.from(0));
-
-        // TODO: check that total locked swapped amount is 0 (or dust amount? TODO: is dust amount okay?)
     });
 
     it("twap:token1", async () => {
@@ -1586,5 +1584,66 @@ describe("AqueductV1Pair", () => {
             .sub(1);
         await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
         await pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount, wallet.address);
+
+        // cancel stream and check that swapped balances are withdrawn
+        latestTime = (await ethers.provider.getBlock("latest")).timestamp;
+        nextBlockTime = latestTime + 10;
+        const token0BalanceInfo = 
+            await token0.realtimeBalanceOf({
+                account: wallet.address,
+                timestamp: nextBlockTime,
+                providerOrSigner: ethers.provider,
+            });
+        const token1BalanceInfo = 
+            await token1.realtimeBalanceOf({
+                account: wallet.address,
+                timestamp: nextBlockTime,
+                providerOrSigner: ethers.provider,
+            });
+        const baseToken0Balance = BigNumber.from(token0BalanceInfo.availableBalance).add(token0BalanceInfo.deposit);
+        const baseToken1Balance = BigNumber.from(token1BalanceInfo.availableBalance).add(token1BalanceInfo.deposit);
+        const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [nextBlockTime]);
+        await network.provider.send("evm_setAutomine", [false]);
+        const deleteFlowOperation0 = token0.deleteFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+        });
+        const deleteFlowOperation1 = token1.deleteFlow({
+            sender: wallet.address,
+            receiver: pair.address,
+        });
+        await deleteFlowOperation0.exec(wallet);
+        await deleteFlowOperation1.exec(wallet);
+        
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        // retrieve funds
+        await pair.retrieveFunds(token0.address);
+        await pair.retrieveFunds(token1.address);
+
+        expect(
+            BigNumber.from(
+                await token0.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken0Balance.add(expectedAmountsOut.balance0));
+        expect(
+            BigNumber.from(
+                await token1.balanceOf({
+                    account: wallet.address,
+                    providerOrSigner: ethers.provider,
+                })
+            )
+        ).to.be.equal(baseToken1Balance.add(expectedAmountsOut.balance1));
+
+        // check that total locked swapped amounts are 0
+        const lockedSwapAmounts = await pair.getRealTimeUserBalances(wallet.address);
+        expect(lockedSwapAmounts.balance0).to.eq(BigNumber.from(0));
+        expect(lockedSwapAmounts.balance1).to.eq(BigNumber.from(0));
     });
 });
