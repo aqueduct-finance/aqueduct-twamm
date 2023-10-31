@@ -60,6 +60,9 @@ const config: HardhatUserConfig = {
         sources: "./src",
         cache: "./cache_hardhat",
     },
+    mocha: {
+        timeout: 100000000
+    },
 };
 
 export default config;

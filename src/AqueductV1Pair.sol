@@ -451,6 +451,10 @@ contract AqueductV1Pair is IAqueductV1Pair, AqueductV1ERC20, SuperAppBase {
         // flow in is always positive
         balance0 = UQ160x96.decode(uint256(uint96(flow1)) * diff0);
         balance1 = UQ160x96.decode(uint256(uint96(flow0)) * diff1);
+
+        // add stored balances
+        balance0 += userBalances0[user];
+        balance1 += userBalances1[user];
     }
 
     /**************************************************************************

@@ -739,7 +739,7 @@ describe("AqueductV1Pair", () => {
         await checkReserves();
         await checkBalances();
 
-        // cancel stream and check that swapped balance is withdrawn
+        // cancel stream
         const baseToken1Balance = expandTo18Decimals(10000).sub(token1Amount);
         expect(
             BigNumber.from(
@@ -759,6 +759,12 @@ describe("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+
+        // check that stored balance is still correct
+        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut.balance1).to.be.equal(expectedAmountsOut.balance1);
+
+        // retrieve funds and check that swapped balance is withdrawn
         await pair.retrieveFunds(token1.address);
         expect(
             BigNumber.from(
@@ -769,8 +775,9 @@ describe("AqueductV1Pair", () => {
             )
         ).to.be.equal(baseToken1Balance.add(expectedAmountsOut.balance1));
 
-        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
-        expect(newExpectedAmountsOut.balance1).to.be.equal(BigNumber.from(0));
+        // check that balances are now 0
+        const newExpectedAmountsOut2 = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut2.balance1).to.be.equal(BigNumber.from(0));
     });
 
     it("twap:token1", async () => {
@@ -859,7 +866,7 @@ describe("AqueductV1Pair", () => {
         await checkReserves();
         await checkBalances();
 
-        // cancel stream and check that swapped balance is withdrawn
+        // cancel stream
         const baseToken0Balance = expandTo18Decimals(10000).sub(token0Amount);
         expect(
             BigNumber.from(
@@ -879,6 +886,12 @@ describe("AqueductV1Pair", () => {
         });
         const txnResponse2 = await deleteFlowOperation.exec(wallet);
         await txnResponse2.wait();
+
+        // check that stored balance is still correct
+        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut.balance0).to.be.equal(expectedAmountsOut.balance0);
+
+        // retrieve funds and check that swapped balance is withdrawn
         await pair.retrieveFunds(token0.address);
         expect(
             BigNumber.from(
@@ -889,8 +902,9 @@ describe("AqueductV1Pair", () => {
             )
         ).to.be.equal(baseToken0Balance.add(expectedAmountsOut.balance0));
 
-        const newExpectedAmountsOut = await pair.getRealTimeUserBalances(wallet.address);
-        expect(newExpectedAmountsOut.balance0).to.be.equal(BigNumber.from(0));
+        // check that balances are now 0
+        const newExpectedAmountsOut2 = await pair.getRealTimeUserBalances(wallet.address);
+        expect(newExpectedAmountsOut2.balance0).to.be.equal(BigNumber.from(0));
     });
 
     /*
@@ -1588,18 +1602,16 @@ describe("AqueductV1Pair", () => {
         // cancel stream and check that swapped balances are withdrawn
         latestTime = (await ethers.provider.getBlock("latest")).timestamp;
         nextBlockTime = latestTime + 10;
-        const token0BalanceInfo = 
-            await token0.realtimeBalanceOf({
-                account: wallet.address,
-                timestamp: nextBlockTime,
-                providerOrSigner: ethers.provider,
-            });
-        const token1BalanceInfo = 
-            await token1.realtimeBalanceOf({
-                account: wallet.address,
-                timestamp: nextBlockTime,
-                providerOrSigner: ethers.provider,
-            });
+        const token0BalanceInfo = await token0.realtimeBalanceOf({
+            account: wallet.address,
+            timestamp: nextBlockTime,
+            providerOrSigner: ethers.provider,
+        });
+        const token1BalanceInfo = await token1.realtimeBalanceOf({
+            account: wallet.address,
+            timestamp: nextBlockTime,
+            providerOrSigner: ethers.provider,
+        });
         const baseToken0Balance = BigNumber.from(token0BalanceInfo.availableBalance).add(token0BalanceInfo.deposit);
         const baseToken1Balance = BigNumber.from(token1BalanceInfo.availableBalance).add(token1BalanceInfo.deposit);
         const expectedAmountsOut = await pair.getUserBalancesAtTime(wallet.address, nextBlockTime);
@@ -1615,7 +1627,7 @@ describe("AqueductV1Pair", () => {
         });
         await deleteFlowOperation0.exec(wallet);
         await deleteFlowOperation1.exec(wallet);
-        
+
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
         await network.provider.send("evm_mine");
