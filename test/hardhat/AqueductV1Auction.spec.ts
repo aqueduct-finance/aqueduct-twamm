@@ -110,6 +110,11 @@ describe("AqueductV1Auction", () => {
         const token0 = tokenA.address === token0Address ? tokenA : tokenB;
         const token1 = tokenA.address === token0Address ? tokenB : tokenA;
 
+        // deploy auction and assign to factory
+        const auctionFactory = await ethers.getContractFactory("AqueductV1Auction");
+        const deployedAuction = await auctionFactory.deploy(factory.address);
+        await factory.setAuction(deployedAuction.address);
+
         // approve max amount for every user
         await token0
             .approve({
@@ -124,7 +129,7 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
 
-        const auction = (await ethers.getContractFactory("AqueductV1Auction")).attach(await factory.auction());
+        const auction = (auctionFactory).attach(await factory.auction());
 
         return { pair, token0, token1, wallet, other, factory, auction, attacker };
     }

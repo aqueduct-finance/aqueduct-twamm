@@ -108,4 +108,28 @@ describe("AqueductV1Factory", () => {
             "FACTORY_FORBIDDEN"
         );
     });
+
+    it("setAuction", async () => {
+        const { factory, wallet, other } = await loadFixture(fixture);
+        await expect(factory.connect(other).setAuction(other.address)).to.be.revertedWithCustomError(
+            factory,
+            "FACTORY_FORBIDDEN"
+        );
+        await expect(factory.setAuction(wallet.address)).to.emit(factory, "SetAuction").withArgs(wallet.address);
+        expect(await factory.auction()).to.eq(wallet.address);
+    });
+
+    it("setAuctionSetter", async () => {
+        const { factory, wallet, other } = await loadFixture(fixture);
+        await expect(factory.connect(other).setAuctionSetter(other.address)).to.be.revertedWithCustomError(
+            factory,
+            "FACTORY_FORBIDDEN"
+        );
+        await expect(factory.setAuctionSetter(other.address)).to.emit(factory, "SetAuctionSetter").withArgs(other.address);
+        expect(await factory.auctionSetter()).to.eq(other.address);
+        await expect(factory.setAuctionSetter(wallet.address)).to.be.revertedWithCustomError(
+            factory,
+            "FACTORY_FORBIDDEN"
+        );
+    });
 });

@@ -124,6 +124,11 @@ describe("AqueductV1Pair", () => {
         const token0 = tokenA.address === token0Address ? tokenA : tokenB;
         const token1 = tokenA.address === token0Address ? tokenB : tokenA;
 
+        // deploy auction and assign to factory
+        const auctionFactory = await ethers.getContractFactory("AqueductV1Auction");
+        const deployedAuction = await auctionFactory.deploy(factory.address);
+        await factory.setAuction(deployedAuction.address);
+
         // approve max amount for every user
         await token0
             .approve({

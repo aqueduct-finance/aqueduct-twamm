@@ -29,8 +29,8 @@ contract AqueductV1Auction is IAqueductV1Auction {
 
     address public immutable override factory;
 
-    constructor() {
-        factory = msg.sender;
+    constructor(address _factory) {
+        factory = _factory;
     }
 
     /**
