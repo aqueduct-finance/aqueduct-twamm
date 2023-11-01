@@ -109,6 +109,57 @@ contract AqueductV1Router is IAqueductV1Router {
         (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
     }
 
+    // **** SWAP ****
+    // requires the initial amount to have already been sent to the first pair
+    function _swap(uint256[] memory amounts, address[] memory path, address _to) internal virtual {
+        for (uint256 i; i < path.length - 1; i++) {
+            (address input, address output) = (path[i], path[i + 1]);
+            (address token0, ) = AqueductV1Library.sortTokens(input, output);
+            uint256 amountOut = amounts[i + 1];
+            (uint256 amount0Out, uint256 amount1Out) = input == token0
+                ? (uint256(0), amountOut)
+                : (amountOut, uint256(0));
+            address to = i < path.length - 2 ? AqueductV1Library.pairFor(factory, output, path[i + 2]) : _to;
+            IAqueductV1Pair(AqueductV1Library.pairFor(factory, input, output)).swap(amount0Out, amount1Out, to);
+        }
+    }
+
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external virtual override ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = AqueductV1Library.getAmountsOut(factory, amountIn, path);
+        if (amounts[amounts.length - 1] < amountOutMin) revert ROUTER_INSUFFICIENT_OUTPUT_AMOUNT();
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            AqueductV1Library.pairFor(factory, path[0], path[1]),
+            amounts[0]
+        );
+        _swap(amounts, path, to);
+    }
+
+    function swapTokensForExactTokens(
+        uint256 amountOut,
+        uint256 amountInMax,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external virtual override ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = AqueductV1Library.getAmountsIn(factory, amountOut, path);
+        if (amounts[0] > amountInMax) revert ROUTER_EXCESSIVE_INPUT_AMOUNT();
+        TransferHelper.safeTransferFrom(
+            path[0],
+            msg.sender,
+            AqueductV1Library.pairFor(factory, path[0], path[1]),
+            amounts[0]
+        );
+        _swap(amounts, path, to);
+    }
+
     // **** LIBRARY FUNCTIONS ****
     function quote(
         uint256 amountA,
