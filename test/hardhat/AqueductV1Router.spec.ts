@@ -91,7 +91,7 @@ describe("AqueductV1Router", () => {
         const weth = await ethers.getContractFactory("WETH9");
         const WETH = await weth.deploy();
 
-        const erc20 = await ethers.getContractFactory("ERC20");
+        const erc20 = await ethers.getContractFactory("src/test/ERC20.sol:ERC20");
         const WETHPartner = await erc20.deploy(expandTo18Decimals(10000));
 
         // deploy V2

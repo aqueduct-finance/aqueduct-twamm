@@ -72,7 +72,7 @@ describe("AqueductV1Factory", () => {
     it("Pair:codeHash", async () => {
         const { factory } = await loadFixture(fixture);
         const codehash = await factory.PAIR_HASH();
-        expect(codehash).to.be.eq("0x6e3566401a51fa210eff400bbdd89b9fbb2b8a44dcd51cc144e7cc5fd95d1b9f");
+        expect(codehash).to.be.eq("0x1039811931780b04810e793c4fcbf43e25f88579608f18658cba0c3ef5219e9d");
     });
 
     it("createPair", async () => {
@@ -91,7 +91,7 @@ describe("AqueductV1Factory", () => {
             factory,
             "FACTORY_FORBIDDEN"
         );
-        await factory.setFeeTo(wallet.address);
+        await expect(factory.setFeeTo(wallet.address)).to.emit(factory, "SetFeeTo").withArgs(wallet.address);
         expect(await factory.feeTo()).to.eq(wallet.address);
     });
 
@@ -101,7 +101,7 @@ describe("AqueductV1Factory", () => {
             factory,
             "FACTORY_FORBIDDEN"
         );
-        await factory.setFeeToSetter(other.address);
+        await expect(factory.setFeeToSetter(other.address)).to.emit(factory, "SetFeeToSetter").withArgs(other.address);
         expect(await factory.feeToSetter()).to.eq(other.address);
         await expect(factory.setFeeToSetter(wallet.address)).to.be.revertedWithCustomError(
             factory,

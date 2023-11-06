@@ -22,11 +22,11 @@ const config: HardhatUserConfig = {
         },
     },
     solidity: {
-        version: "0.8.12",
+        version: "0.8.19",
         settings: {
             optimizer: {
                 enabled: true,
-                runs: 9999,
+                runs: 200,
             },
             metadata: {
                 bytecodeHash: "none",
@@ -59,6 +59,9 @@ const config: HardhatUserConfig = {
     paths: {
         sources: "./src",
         cache: "./cache_hardhat",
+    },
+    mocha: {
+        timeout: 100000000
     },
 };
 

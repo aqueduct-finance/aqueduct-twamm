@@ -171,15 +171,35 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
 
-        await expect(auction.placeBid(token0.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256))
+        await expect(
+            auction.placeBid(
+                token0.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            )
+        )
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, swapAmount, 0, 0, expectedOutputAmount, auction.address);
+            .withArgs(auction.address, swapAmount, 0, 0, expectedOutputAmount, auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            );
 
         await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bidAmount)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, expectedOutputAmount);
+            .withArgs(auction.address, wallet.address, expectedOutputAmount)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, wallet.address, token1.address, expectedOutputAmount, token0.address, bidAmount);
     });
 
     it("auction:token1", async () => {
@@ -201,15 +221,35 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
 
-        await expect(auction.placeBid(token1.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256))
+        await expect(
+            auction.placeBid(
+                token1.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            )
+        )
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, 0, swapAmount, expectedOutputAmount, 0, auction.address);
+            .withArgs(auction.address, 0, swapAmount, expectedOutputAmount, 0, auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token1.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            );
 
         await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bidAmount)
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, expectedOutputAmount);
+            .withArgs(auction.address, wallet.address, expectedOutputAmount)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, wallet.address, token0.address, expectedOutputAmount, token1.address, bidAmount);
     });
 
     it("auction:token_under_min_bid", async () => {
@@ -222,6 +262,7 @@ describe("AqueductV1Auction", () => {
         const totalSwapAmount = expandTo18Decimals(1);
         const bidAmount = totalSwapAmount.mul(3).div(1000).sub(1); // under minimum bid (<0.3%)
         const swapAmount = totalSwapAmount.sub(bidAmount);
+        const expectedOutputAmount = BigNumber.from("1662497915624478906");
 
         await token0
             .approve({
@@ -231,7 +272,14 @@ describe("AqueductV1Auction", () => {
             .exec(wallet);
 
         await expect(
-            auction.placeBid(token0.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256)
+            auction.placeBid(
+                token0.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            )
         ).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
 
         await auction.placeBid(
@@ -239,6 +287,7 @@ describe("AqueductV1Auction", () => {
             pair.address,
             bidAmount.add(1), // now exactly equal to 0.3% fee
             swapAmount,
+            expectedOutputAmount,
             ethers.constants.MaxUint256
         );
     });
@@ -253,6 +302,7 @@ describe("AqueductV1Auction", () => {
         const totalSwapAmount = expandTo18Decimals(1);
         const bidAmount = totalSwapAmount.mul(3).div(1000); // minimum bid == 0.3% fee
         const swapAmount = totalSwapAmount.sub(bidAmount);
+        const expectedOutputAmount = BigNumber.from("1662497915624478906");
 
         // bad approval
         await token0
@@ -262,7 +312,14 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
         await expect(
-            auction.placeBid(token0.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256)
+            auction.placeBid(
+                token0.address,
+                pair.address,
+                bidAmount,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            )
         ).to.be.revertedWithCustomError(auction, "TRANSFERHELPER_TRANSFER_FROM_FAILED");
 
         // good approval
@@ -272,7 +329,14 @@ describe("AqueductV1Auction", () => {
                 amount: totalSwapAmount,
             })
             .exec(wallet);
-        await auction.placeBid(token0.address, pair.address, bidAmount, swapAmount, ethers.constants.MaxUint256);
+        await auction.placeBid(
+            token0.address,
+            pair.address,
+            bidAmount,
+            swapAmount,
+            expectedOutputAmount,
+            ethers.constants.MaxUint256
+        );
     });
 
     it("auction:bids_in_separate_blocks", async () => {
@@ -291,19 +355,39 @@ describe("AqueductV1Auction", () => {
         // first bid
         const bid1 = expandTo18Decimals(1);
         const swapAmount = expandTo18Decimals(1);
+        const expectedOutputAmount = BigNumber.from("1666666666666666666");
         await token0
             .approve({
                 receiver: auction.address,
                 amount: ethers.constants.MaxInt256,
             })
             .exec(wallet);
-        await expect(auction.placeBid(token0.address, pair.address, bid1, swapAmount, ethers.constants.MaxUint256))
+        await expect(
+            auction.placeBid(
+                token0.address,
+                pair.address,
+                bid1,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            )
+        )
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, swapAmount, 0, 0, "1666666666666666666", auction.address);
+            .withArgs(auction.address, swapAmount, 0, 0, "1666666666666666666", auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bid1,
+                swapAmount,
+                "1666666666666666666",
+                ethers.constants.MaxUint256
+            );
 
         // second bid
         const bid2 = expandTo18Decimals(2);
         const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = BigNumber.from("1851851851851851852");
         await token0
             .approve({
                 receiver: auction.address,
@@ -315,21 +399,39 @@ describe("AqueductV1Auction", () => {
         await expect(
             await auction
                 .connect(other)
-                .placeBid(token0.address, pair.address, bid2, swapAmount2, ethers.constants.MaxUint256)
+                .placeBid(
+                    token0.address,
+                    pair.address,
+                    bid2,
+                    swapAmount2,
+                    expectedOutputAmount2,
+                    ethers.constants.MaxUint256
+                )
         )
             .to.emit(pair, "Swap")
             .withArgs(auction.address, swapAmount2, 0, 0, "1851851851851851852", auction.address)
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bid1)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, "1666666666666666666");
+            .withArgs(auction.address, wallet.address, "1666666666666666666")
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bid2,
+                swapAmount2,
+                "1851851851851851852",
+                ethers.constants.MaxUint256
+            );
 
         // check that the second amount was swapped
         await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, bid2)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "1851851851851851852");
+            .withArgs(auction.address, other.address, "1851851851851851852")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, other.address, token1.address, "1851851851851851852", token0.address, bid2);
     });
 
     it("auction:losing_bid_first", async () => {
@@ -362,12 +464,14 @@ describe("AqueductV1Auction", () => {
             pair.address,
             smallBid,
             swapAmount,
+            0,
             ethers.constants.MaxUint256
         );
 
         // larger bid second (winning bid)
         const largerBid = expandTo18Decimals(2);
         const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = BigNumber.from("2857142857142857142");
         await token0
             .approve({
                 receiver: auction.address,
@@ -376,7 +480,14 @@ describe("AqueductV1Auction", () => {
             .exec(other);
         const secondBid = auction
             .connect(other)
-            .placeBid(token0.address, pair.address, largerBid, swapAmount2, ethers.constants.MaxUint256);
+            .placeBid(
+                token0.address,
+                pair.address,
+                largerBid,
+                swapAmount2,
+                expectedOutputAmount2,
+                ethers.constants.MaxUint256
+            );
 
         await network.provider.send("evm_setAutomine", [true]);
         await network.provider.send("evm_mine");
@@ -387,7 +498,16 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
             .withArgs(auction.address, wallet.address, swapAmount.add(smallBid).sub(1)) // user loses small dust amount
             .to.emit(pair, "Swap")
-            .withArgs(auction.address, swapAmount2, 0, 0, "2857142857142857142", auction.address);
+            .withArgs(auction.address, swapAmount2, 0, 0, "2857142857142857142", auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                largerBid,
+                swapAmount2,
+                "2857142857142857142",
+                ethers.constants.MaxUint256
+            );
 
         // check that first user got their funds back
         const currentUserBalance = await token0.balanceOf({
@@ -401,7 +521,9 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, largerBid)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "2857142857142857142");
+            .withArgs(auction.address, other.address, "2857142857142857142")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, other.address, token1.address, "2857142857142857142", token0.address, largerBid);
     });
 
     it("auction:winning_bid_first", async () => {
@@ -417,13 +539,21 @@ describe("AqueductV1Auction", () => {
         // larger bid first (winning bid)
         const largerBid = expandTo18Decimals(2);
         const swapAmount = expandTo18Decimals(2);
+        const expectedOutputAmount = BigNumber.from("2857142857142857142");
         await token0
             .approve({
                 receiver: auction.address,
                 amount: ethers.constants.MaxInt256,
             })
             .exec(wallet);
-        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, ethers.constants.MaxUint256);
+        await auction.placeBid(
+            token0.address,
+            pair.address,
+            largerBid,
+            swapAmount,
+            expectedOutputAmount,
+            ethers.constants.MaxUint256
+        );
 
         // smaller bid second
         const smallerBid = expandTo18Decimals(1);
@@ -439,7 +569,7 @@ describe("AqueductV1Auction", () => {
         await expect(
             auction
                 .connect(other)
-                .placeBid(token0.address, pair.address, smallerBid, swapAmount2, ethers.constants.MaxUint256)
+                .placeBid(token0.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256)
         ).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
 
         // check that the first amount is swapped
@@ -447,10 +577,18 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, largerBid)
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, wallet.address, "2857142857142857142");
+            .withArgs(auction.address, wallet.address, "2857142857142857142")
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(pair.address, wallet.address, token1.address, "2857142857142857142", token0.address, largerBid);
     });
 
-    it("auction:bid0,1", async () => {
+    /*
+        auction:bid0,0, auction:bid1,1, auction:bid0,1, and auction:bid1,0 split into two tests:
+        1. bid just below sufficient amount - expect revert
+        2. bid exactly at sufficient amount - expect passing
+        * split into two tests because expect() does not work when evm_setAutomine=false
+    */
+    it("auction:bid0,0:revert", async () => {
         const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
 
         const token0Amount = expandTo18Decimals(5);
@@ -469,25 +607,20 @@ describe("AqueductV1Auction", () => {
                 amount: ethers.constants.MaxInt256,
             })
             .exec(wallet);
-        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, ethers.constants.MaxUint256);
+        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
 
-        // smaller bid second in token1
-        const smallerBid = largerBid.mul(token1Amount).div(token0Amount).sub(1); // convert token0->token1 and subtract 1 wei so the bid is smaller
+        // smaller bid second in token0 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
         const swapAmount2 = expandTo18Decimals(2);
-        await token1
+        await token0
             .approve({
                 receiver: auction.address,
                 amount: ethers.constants.MaxInt256,
             })
             .exec(other);
-
-        // add both transactions to same block
         const failingTx = auction
             .connect(other)
-            .placeBid(token1.address, pair.address, smallerBid, swapAmount2, ethers.constants.MaxUint256);
-        const passingTx = auction
-            .connect(other)
-            .placeBid(token1.address, pair.address, smallerBid.add(1), swapAmount2, ethers.constants.MaxUint256);
+            .placeBid(token0.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
 
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
@@ -495,6 +628,160 @@ describe("AqueductV1Auction", () => {
 
         // check that first transaction revert and second didn't
         await expect(failingTx).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
+    });
+
+    it("auction:bid0,0:pass", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token0 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token0 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = token1Amount
+            .sub(token1Amount.mul(token0Amount).div(token0Amount.add(swapAmount2)))
+            .sub(1);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const passingTx = auction.connect(other).placeBid(
+            token0.address,
+            pair.address,
+            smallerBid.add(1), // make new bid 1 wei larger
+            swapAmount2,
+            0,
+            ethers.constants.MaxUint256
+        );
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        await passingTx;
+
+        // check that the second amount is swapped
+        await expect(auction.executeWinningBid(pair.address))
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
+            .withArgs(auction.address, pair.address, smallerBid.add(1))
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
+            .withArgs(auction.address, other.address, expectedOutputAmount2)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token1.address,
+                expectedOutputAmount2,
+                token0.address,
+                smallerBid.add(1)
+            );
+    });
+
+    it("auction:bid1,1:revert", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token1 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token1 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const failingTx = auction
+            .connect(other)
+            .placeBid(token1.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        // check that first transaction revert and second didn't
+        await expect(failingTx).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
+    });
+
+    it("auction:bid1,1:pass", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token1 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token1 (actually its equal in value, so it will still fail)
+        const smallerBid = largerBid;
+        const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = token0Amount
+            .sub(token0Amount.mul(token1Amount).div(token1Amount.add(swapAmount2)))
+            .sub(1);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const passingTx = auction.connect(other).placeBid(
+            token1.address,
+            pair.address,
+            smallerBid.add(1), // make new bid 1 wei larger
+            swapAmount2,
+            0,
+            ethers.constants.MaxUint256
+        );
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
 
         await passingTx;
 
@@ -503,10 +790,19 @@ describe("AqueductV1Auction", () => {
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, smallerBid.add(1))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "1968749999999999999");
+            .withArgs(auction.address, other.address, expectedOutputAmount2)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token0.address,
+                expectedOutputAmount2,
+                token1.address,
+                smallerBid.add(1)
+            );
     });
 
-    it("auction:bid1,0", async () => {
+    it("auction:bid0,1:revert", async () => {
         const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
 
         const token0Amount = expandTo18Decimals(5);
@@ -519,31 +815,26 @@ describe("AqueductV1Auction", () => {
         // larger bid first in token0 (winning bid)
         const largerBid = expandTo18Decimals(2);
         const swapAmount = expandTo18Decimals(2);
-        await token1
-            .approve({
-                receiver: auction.address,
-                amount: ethers.constants.MaxInt256,
-            })
-            .exec(wallet);
-        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, ethers.constants.MaxUint256);
-
-        // smaller bid second in token1
-        const smallerBid = largerBid.mul(token0Amount).div(token1Amount).sub(1); // convert token1->token0 and subtract 1 wei so the bid is smaller
-        const swapAmount2 = expandTo18Decimals(2);
         await token0
             .approve({
                 receiver: auction.address,
                 amount: ethers.constants.MaxInt256,
             })
-            .exec(other);
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
 
-        // add both transactions to same block
+        // smaller bid second in token1
+        const smallerBid = largerBid.mul(token1Amount).div(token0Amount); // convert token0->token1
+        const swapAmount2 = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
         const failingTx = auction
             .connect(other)
-            .placeBid(token0.address, pair.address, smallerBid, swapAmount2, ethers.constants.MaxUint256);
-        const passingTx = auction
-            .connect(other)
-            .placeBid(token0.address, pair.address, smallerBid.add(1), swapAmount2, ethers.constants.MaxUint256);
+            .placeBid(token1.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
 
         // mine block
         await network.provider.send("evm_setAutomine", [true]);
@@ -551,15 +842,253 @@ describe("AqueductV1Auction", () => {
 
         // check that first transaction revert and second didn't
         await expect(failingTx).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
+    });
+
+    it("auction:bid0,1:pass", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token0 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token1
+        const smallerBid = largerBid.mul(token1Amount).div(token0Amount); // convert token0->token1
+        const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = token0Amount
+            .sub(token0Amount.mul(token1Amount).div(token1Amount.add(swapAmount2)))
+            .sub(1);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const passingTx = auction.connect(other).placeBid(
+            token1.address,
+            pair.address,
+            smallerBid.add(2), // make new bid 1 wei larger
+            swapAmount2,
+            0,
+            ethers.constants.MaxUint256
+        );
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
 
         await passingTx;
 
         // check that the second amount is swapped
         await expect(auction.executeWinningBid(pair.address))
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send bid to pair
+            .withArgs(auction.address, pair.address, smallerBid.add(2))
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send funds back to user
+            .withArgs(auction.address, other.address, expectedOutputAmount2)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token0.address,
+                expectedOutputAmount2,
+                token1.address,
+                smallerBid.add(2)
+            );
+    });
+
+    it("auction:bid1,0:revert", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token1 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token0
+        const smallerBid = largerBid.mul(token0Amount).div(token1Amount); // convert token1->token0
+        const swapAmount2 = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const failingTx = auction
+            .connect(other)
+            .placeBid(token0.address, pair.address, smallerBid, swapAmount2, 0, ethers.constants.MaxUint256);
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        // check for revert
+        await expect(failingTx).to.be.revertedWithCustomError(auction, "AUCTION_INSUFFICIENT_BID");
+    });
+
+    it("auction:bid1,0:pass", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        // Disable automining, so that both transactions are in the same block
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // larger bid first in token1 (winning bid)
+        const largerBid = expandTo18Decimals(2);
+        const swapAmount = expandTo18Decimals(2);
+        await token1
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token1.address, pair.address, largerBid, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // smaller bid second in token0
+        const smallerBid = largerBid.mul(token0Amount).div(token1Amount); // convert token1->token0
+        const swapAmount2 = expandTo18Decimals(2);
+        const expectedOutputAmount2 = token1Amount.sub(
+            token0Amount.mul(token1Amount).div(token0Amount.add(swapAmount2))
+        );
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        const passingTx = auction.connect(other).placeBid(
+            token0.address,
+            pair.address,
+            smallerBid.add(1), // make new bid 1 wei larger
+            swapAmount2,
+            expectedOutputAmount2,
+            ethers.constants.MaxUint256
+        );
+
+        // mine block
+        await network.provider.send("evm_setAutomine", [true]);
+        await network.provider.send("evm_mine");
+
+        await passingTx;
+
+        // check that the correct amount is swapped
+        await expect(auction.executeWinningBid(pair.address))
             .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer") // send bid to pair
             .withArgs(auction.address, pair.address, smallerBid.add(1))
             .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer") // send funds back to user
-            .withArgs(auction.address, other.address, "4540540540540540540");
+            .withArgs(auction.address, other.address, expectedOutputAmount2)
+            .to.emit(auction, "ExecuteWinningBid")
+            .withArgs(
+                pair.address,
+                other.address,
+                token1.address,
+                expectedOutputAmount2,
+                token0.address,
+                smallerBid.add(1)
+            );
+    });
+
+    it("auction:slippage_check", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        /*
+            (testing low severity issue from salus audit - no slippage protection)
+
+            scenario:
+            1. Alice and Bob both want to bid in block A, and they bid the same amount
+            2. Bob censors Alice from block A
+            3. Alice's gets inadvertently included in block B (she didn't set a deadline)
+            4. test that setting amountOutMin will protect her from this frontrun
+
+            to test, we'll just include Bob's bid in block A and Alice's bid in block B
+        */
+        const alice = other;
+        const bob = wallet;
+
+        // bob's bid (alice will submit the same values for bid, swapAmount, and expectedOutputAmount)
+        const bid = expandTo18Decimals(1);
+        const swapAmount = expandTo18Decimals(1);
+        const expectedOutputAmount = BigNumber.from("1666666666666666666");
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(bob);
+        await expect(
+            auction.placeBid(
+                token0.address,
+                pair.address,
+                bid,
+                swapAmount,
+                expectedOutputAmount,
+                ethers.constants.MaxUint256
+            )
+        )
+            .to.emit(pair, "Swap")
+            .withArgs(auction.address, swapAmount, 0, 0, "1666666666666666666", auction.address)
+            .to.emit(auction, "PlaceBid")
+            .withArgs(
+                token0.address,
+                pair.address,
+                bid,
+                swapAmount,
+                "1666666666666666666",
+                ethers.constants.MaxUint256
+            );
+
+        // alice's bid
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(alice);
+        // (hardhat automatically mines each time, so this is a new block)
+        await expect(
+            auction
+                .connect(alice)
+                .placeBid(
+                    token0.address,
+                    pair.address,
+                    bid,
+                    swapAmount,
+                    expectedOutputAmount,
+                    ethers.constants.MaxUint256
+                )
+        ).to.be.revertedWithCustomError(auction, "AUCTION_UNDER_MIN_AMOUNT_OUT");
     });
 
     /**************************************************************************
@@ -625,6 +1154,7 @@ describe("AqueductV1Auction", () => {
                     pair.address,
                     bidExploitAmount,
                     swapExploitAmount,
+                    0,
                     ethers.constants.MaxUint256
                 )
         ).to.be.revertedWithCustomError(auction, "AUCTION_TRANSFER_FAILED");
@@ -648,6 +1178,7 @@ describe("AqueductV1Auction", () => {
                     pair.address,
                     bidExploitAmount,
                     swapExploitAmount,
+                    0,
                     ethers.constants.MaxUint256
                 )
         ).to.be.revertedWithCustomError(auction, "AUCTION_TOKEN_NOT_IN_PAIR");
@@ -693,7 +1224,7 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
 
-        await auction.placeBid(token0.address, pair.address, bid, swapAmount, ethers.constants.MaxUint256);
+        await auction.placeBid(token0.address, pair.address, bid, swapAmount, 0, ethers.constants.MaxUint256);
 
         // attacker places bid with custom pair contract
         await expect(poc.connect(hacker).attackPlaceBid(bid, swapAmount)).to.be.revertedWithCustomError(
@@ -758,6 +1289,7 @@ describe("AqueductV1Auction", () => {
                 pair.address,
                 bidExploitAmount,
                 swapExploitAmount,
+                0,
                 ethers.constants.MaxUint256
             );
 
@@ -765,6 +1297,57 @@ describe("AqueductV1Auction", () => {
         await expect(auction.executeWinningBid(pair.address)).to.be.revertedWithCustomError(
             auction,
             "AUCTION_TRANSFER_FAILED"
+        );
+    });
+
+    it("auction:place_execute_bid_in_one_block", async () => {
+        const { pair, wallet, token0, token1, auction, other } = await loadFixture(fixture);
+
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        await addLiquidity(token0, token1, pair, wallet, token0Amount, token1Amount);
+
+        const token1InitialBalance = BigInt(
+            await token1.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })
+        );
+
+        // first bid
+        const bid1 = expandTo18Decimals(1);
+        const swapAmount = expandTo18Decimals(1);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(wallet);
+        await auction.placeBid(token0.address, pair.address, bid1, swapAmount, 0, ethers.constants.MaxUint256);
+
+        // let executeWinningBid() be in the same block with the second-placed bid
+        await network.provider.send("evm_setAutomine", [false]);
+
+        // second bid
+        const bid2 = expandTo18Decimals(2);
+        const swapAmount2 = expandTo18Decimals(2);
+        await token0
+            .approve({
+                receiver: auction.address,
+                amount: ethers.constants.MaxInt256,
+            })
+            .exec(other);
+        await auction
+            .connect(other)
+            .placeBid(token0.address, pair.address, bid2, swapAmount2, 0, ethers.constants.MaxUint256);
+
+        await network.provider.send("evm_setAutomine", [true]);
+
+        // second bid should not be executed until the next block
+        await expect(auction.executeWinningBid(pair.address)).to.be.revertedWithCustomError(
+            auction,
+            "AUCTION_ALREADY_EXECUTED"
+        );
+        // the first bid should be executed
+        expect(await token1.balanceOf({ account: wallet.address, providerOrSigner: ethers.provider })).to.equal(
+            token1InitialBalance + BigInt("1666666666666666666")
         );
     });
 });

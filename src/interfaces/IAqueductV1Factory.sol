@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.12;
+pragma solidity 0.8.19;
 
 import {IAqueductV1Auction} from "./IAqueductV1Auction.sol";
 
 interface IAqueductV1Factory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
+    event SetFeeTo(address feeTo);
+    event SetFeeToSetter(address feeToSetter);
 
+    error HOST_ZERO_ADDRESS();
     error FACTORY_IDENTICAL_ADDRESSES();
     error FACTORY_ZERO_ADDRESS();
     error FACTORY_PAIR_EXISTS();

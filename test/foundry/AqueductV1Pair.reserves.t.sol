@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.12;
+pragma solidity 0.8.19;
 
 //solhint-disable no-global-import
 //solhint-disable no-console
@@ -13,14 +13,12 @@ import {IAqueductV1Pair} from "../../src/interfaces/IAqueductV1Pair.sol";
 import {AqueductV1Factory} from "../../src/AqueductV1Factory.sol";
 import {AqueductV1PairHarness} from "./utils/AqueductV1PairHarness.sol";
 
-import {UQ112x112} from "../../src/libraries/UQ112x112.sol";
 import {Math} from "../../src/libraries/Math.sol";
 import {AqueductTester} from "./utils/AqueductTester.sol";
 
 import "forge-std/console2.sol";
 
 contract AqueductV1PairReservesTest is AqueductTester {
-    using UQ112x112 for uint224;
 
     constructor() AqueductTester() {}
 
@@ -42,7 +40,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateFees_Basic() public {
         // Arrange
-        uint112 totalFlow = 10000;
+        uint96 totalFlow = 10000;
         uint32 timeElapsed = 1;
 
         // Act
@@ -54,7 +52,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateFees_NoFlow() public {
         // Arrange
-        uint112 totalFlow = 0;
+        uint96 totalFlow = 0;
         uint32 timeElapsed = 100;
 
         // Act
@@ -66,7 +64,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateFees_NoTimeElasped() public {
         // Arrange
-        uint112 totalFlow = 10000;
+        uint96 totalFlow = 10000;
         uint32 timeElapsed = 0;
 
         // Act
@@ -78,7 +76,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateFees_LongTime() public {
         // Arrange
-        uint112 totalFlow = 10000;
+        uint96 totalFlow = 10000;
         uint32 timeElapsed = 100;
 
         // Act
@@ -90,7 +88,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateFees_MaxValues() public {
         // Arrange
-        uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE()); // max 96 bits
+        uint96 totalFlow = uint96(sf.cfa.MAXIMUM_FLOW_RATE()); // max 96 bits
         uint32 timeElapsed = type(uint16).max; // max == 112 - 96 = 16 bits
 
         uint112 expectedFee = uint112((uint256(totalFlow) * timeElapsed * TWAP_FEE) / 10000);
@@ -107,7 +105,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
         aqueductV1PairHarness.exposed_calculateFees(totalFlow, timeElapsed);
     }
 
-    function testFuzz_calculateFees(uint112 totalFlow, uint32 timeElapsed) public {
+    function testFuzz_calculateFees(uint96 totalFlow, uint32 timeElapsed) public {
         // Arrange
         vm.assume(totalFlow < sf.cfa.MAXIMUM_FLOW_RATE());
 
@@ -130,7 +128,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateReserveAmountSinceTime_Basic() public {
         // Arrange
-        uint112 totalFlow = 10000;
+        uint96 totalFlow = 10000;
         uint32 timeElapsed = 12;
         uint112 expectedReserve = (totalFlow * timeElapsed * (10000 - TWAP_FEE)) / 10000;
 
@@ -143,7 +141,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateReserveAmountSinceTime_NoFlow() public {
         // Arrange
-        uint112 totalFlow = 0;
+        uint96 totalFlow = 0;
         uint32 timeElapsed = 100;
 
         // Act
@@ -155,7 +153,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateReserveAmountSinceTime_NoTimeElapsed() public {
         // Arrange
-        uint112 totalFlow = 10000;
+        uint96 totalFlow = 10000;
         uint32 timeElapsed = 0;
 
         // Act
@@ -167,7 +165,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
 
     function test_calculateReserveAmountSinceTime_MaxValues() public {
         // Arrange
-        uint112 totalFlow = uint112(sf.cfa.MAXIMUM_FLOW_RATE()); // max 96 bits
+        uint96 totalFlow = uint96(sf.cfa.MAXIMUM_FLOW_RATE()); // max 96 bits
         uint32 timeElapsed = type(uint16).max; // max == 112 - 96 = 16 bits
 
         uint112 expectedReserveAmount = uint112((uint256(totalFlow) * timeElapsed * (10000 - TWAP_FEE)) / 10000);
@@ -184,7 +182,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
         aqueductV1PairHarness.exposed_calculateReserveAmountSinceTime(totalFlow, timeElapsed);
     }
 
-    function testFuzz_calculateReserveAmountSinceTime(uint112 totalFlow, uint32 timeElapsed) public {
+    function testFuzz_calculateReserveAmountSinceTime(uint96 totalFlow, uint32 timeElapsed) public {
         // Arrange
         vm.assume(totalFlow < (sf.cfa.MAXIMUM_FLOW_RATE()));
 
@@ -209,8 +207,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesBothFlows_Basic() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow0 = 1 * 10 ** 18;
-        uint112 totalFlow1 = 1 * 10 ** 18;
+        uint96 totalFlow0 = 1 * 10 ** 18;
+        uint96 totalFlow1 = 1 * 10 ** 18;
         uint32 timeElapsed = 12;
         uint112 reserve0 = 1 * 10 ** 18;
         uint112 reserve1 = 1 * 10 ** 18;
@@ -238,8 +236,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesBothFlows_ZeroFlows() public {
         // Arrange
         uint256 _kLast = 1 * 10 ** 36;
-        uint112 totalFlow0 = 0;
-        uint112 totalFlow1 = 0;
+        uint96 totalFlow0 = 0;
+        uint96 totalFlow1 = 0;
         uint32 timeElapsed = 12;
         uint112 _reserve0 = 1 * 10 ** 18;
         uint112 _reserve1 = 1 * 10 ** 18;
@@ -262,8 +260,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesBothFlows_NoTimeElapsed() public {
         // Arrange
         uint256 _kLast = 1 * 10 ** 36;
-        uint112 totalFlow0 = 1 * 10 ** 18;
-        uint112 totalFlow1 = 1 * 10 ** 18;
+        uint96 totalFlow0 = 1 * 10 ** 18;
+        uint96 totalFlow1 = 1 * 10 ** 18;
         uint32 timeElapsed = 0;
         uint112 _reserve0 = 1 * 10 ** 18;
         uint112 _reserve1 = 1 * 10 ** 18;
@@ -286,8 +284,8 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function testFuzz_calculateReservesBothFlows(
         uint112 reserve0,
         uint112 reserve1,
-        uint112 totalFlow0,
-        uint112 totalFlow1,
+        uint96 totalFlow0,
+        uint96 totalFlow1,
         uint32 timeElapsed
     ) public {
         // Arrange
@@ -321,7 +319,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesFlow0_Basic() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow0 = 1 * 10 ** 18;
+        uint96 totalFlow0 = 1 * 10 ** 18;
         uint32 timeElapsed = 12;
         uint112 reserve0 = 1 * 10 ** 18;
 
@@ -347,7 +345,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesFlow0_NoFlow() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow0 = 0;
+        uint96 totalFlow0 = 0;
         uint32 timeElapsed = 12;
         uint112 reserve0 = 1 * 10 ** 18;
 
@@ -371,7 +369,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesFlow0_NoElapsedTime() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow0 = 1 * 10 ** 18;
+        uint96 totalFlow0 = 1 * 10 ** 18;
         uint32 timeElapsed = 0;
         uint112 reserve0 = 1 * 10 ** 18;
 
@@ -393,7 +391,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     }
 
     function testFuzz_calculateReservesFlow0(
-        uint112 totalFlow0,
+        uint96 totalFlow0,
         uint32 timeElapsed,
         uint112 reserve0,
         uint112 reserve1
@@ -419,7 +417,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesFlow1_Basic() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow1 = 1 * 10 ** 18;
+        uint96 totalFlow1 = 1 * 10 ** 18;
         uint32 timeElapsed = 12;
         uint112 reserve1 = 1 * 10 ** 18;
 
@@ -445,7 +443,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesFlow1_NoFlow() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow1 = 0;
+        uint96 totalFlow1 = 0;
         uint32 timeElapsed = 12;
         uint112 reserve1 = 1 * 10 ** 18;
 
@@ -469,7 +467,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     function test_calculateReservesFlow1_NoElapsedTime() public {
         // Arrange
         uint256 kLast = 1 * 10 ** 36;
-        uint112 totalFlow1 = 1 * 10 ** 18;
+        uint96 totalFlow1 = 1 * 10 ** 18;
         uint32 timeElapsed = 0;
         uint112 reserve1 = 1 * 10 ** 18;
 
@@ -491,7 +489,7 @@ contract AqueductV1PairReservesTest is AqueductTester {
     }
 
     function testFuzz_calculateReservesFlow1(
-        uint112 totalFlow1,
+        uint96 totalFlow1,
         uint32 timeElapsed,
         uint112 reserve0,
         uint112 reserve1

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.12;
+pragma solidity 0.8.19;
 
 //solhint-disable reason-string
 
@@ -32,7 +32,7 @@ library AqueductV1Library {
                             bytes1(0xff),
                             factory,
                             keccak256(abi.encodePacked(token0, token1)),
-                            hex"6e3566401a51fa210eff400bbdd89b9fbb2b8a44dcd51cc144e7cc5fd95d1b9f" // init code hash
+                            hex"1039811931780b04810e793c4fcbf43e25f88579608f18658cba0c3ef5219e9d" // init code hash
                         )
                     )
                 )
