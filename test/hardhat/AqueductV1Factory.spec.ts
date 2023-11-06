@@ -125,7 +125,9 @@ describe("AqueductV1Factory", () => {
             factory,
             "FACTORY_FORBIDDEN"
         );
-        await expect(factory.setAuctionSetter(other.address)).to.emit(factory, "SetAuctionSetter").withArgs(other.address);
+        await expect(factory.setAuctionSetter(other.address))
+            .to.emit(factory, "SetAuctionSetter")
+            .withArgs(other.address);
         expect(await factory.auctionSetter()).to.eq(other.address);
         await expect(factory.setAuctionSetter(wallet.address)).to.be.revertedWithCustomError(
             factory,

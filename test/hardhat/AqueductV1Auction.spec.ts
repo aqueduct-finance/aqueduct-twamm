@@ -129,7 +129,7 @@ describe("AqueductV1Auction", () => {
             })
             .exec(wallet);
 
-        const auction = (auctionFactory).attach(await factory.auction());
+        const auction = auctionFactory.attach(await factory.auction());
 
         return { pair, token0, token1, wallet, other, factory, auction, attacker };
     }
