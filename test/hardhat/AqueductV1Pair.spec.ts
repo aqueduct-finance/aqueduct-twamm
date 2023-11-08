@@ -124,6 +124,11 @@ describe("AqueductV1Pair", () => {
         const token0 = tokenA.address === token0Address ? tokenA : tokenB;
         const token1 = tokenA.address === token0Address ? tokenB : tokenA;
 
+        // deploy auction and assign to factory
+        const auctionFactory = await ethers.getContractFactory("AqueductV1Auction");
+        const deployedAuction = await auctionFactory.deploy(factory.address);
+        await factory.setAuction(deployedAuction.address);
+
         // approve max amount for every user
         await token0
             .approve({
@@ -371,8 +376,8 @@ describe("AqueductV1Pair", () => {
             params: [auctionAddress],
         });
         await expect(pair.connect(mockAuctionSigner).swap(0, expectedOutputAmount, wallet.address))
-            //.to.emit(token1, "Transfer")
-            //.withArgs(pair.address, wallet.address, expectedOutputAmount)
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer")
+            .withArgs(pair.address, wallet.address, expectedOutputAmount)
             .to.emit(pair, "Sync")
             .withArgs(token0Amount.add(swapAmount), token1Amount.sub(expectedOutputAmount))
             .to.emit(pair, "Swap")
@@ -430,8 +435,8 @@ describe("AqueductV1Pair", () => {
             params: [auctionAddress],
         });
         await expect(pair.connect(mockAuctionSigner).swap(expectedOutputAmount, 0, wallet.address))
-            //.to.emit(token0, "Transfer")
-            //.withArgs(pair.address, wallet.address, expectedOutputAmount)
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer")
+            .withArgs(pair.address, wallet.address, expectedOutputAmount)
             .to.emit(pair, "Sync")
             .withArgs(token0Amount.sub(expectedOutputAmount), token1Amount.add(swapAmount))
             .to.emit(pair, "Swap")

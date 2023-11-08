@@ -28,6 +28,9 @@ const delay = async (seconds: number) => {
     await ethers.provider.send("evm_mine", []);
 };
 
+// erc20 abi, used to correctly check for Transfer event
+const erc20Abi = ["event Transfer(address indexed from, address indexed to, uint256 value)"];
+
 before(async function () {
     // get hardhat accounts
     [owner] = await ethers.getSigners();
@@ -98,9 +101,14 @@ describe("AqueductV1Router", () => {
         const v2factory = await ethers.getContractFactory("AqueductV1Factory");
         const factoryV2 = await v2factory.deploy(wallet.address, contractsFramework.host);
 
+        const routerEmit = await ethers.getContractFactory("RouterEventEmitter");
+
+        const RouterEmit = await routerEmit.deploy();
+
         // deploy routers
         const router = await ethers.getContractFactory("AqueductV1Router");
         const router02 = await router.deploy(factoryV2.address);
+        await factoryV2.setAuction(router02.address); // allows router to call the swap() function
 
         // initialize V2
         await factoryV2.createPair(tokenA.address, tokenB.address);
@@ -125,6 +133,7 @@ describe("AqueductV1Router", () => {
             factoryV2,
             router02,
             pair,
+            RouterEmit,
             wallet,
             wethPair,
         };
@@ -252,14 +261,14 @@ describe("AqueductV1Router", () => {
                 ethers.constants.MaxUint256
             )
         )
-            /*.to.emit(token0, "Transfer")
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer")
             .withArgs(wallet.address, pair.address, token0Amount)
-            .to.emit(token1, "Transfer")
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer")
             .withArgs(wallet.address, pair.address, token1Amount)
             .to.emit(pair, "Transfer")
             .withArgs(ethers.constants.AddressZero, ethers.constants.AddressZero, MINIMUM_LIQUIDITY)
             .to.emit(pair, "Transfer")
-            .withArgs(ethers.constants.AddressZero, wallet.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))*/
+            .withArgs(ethers.constants.AddressZero, wallet.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
             .to.emit(pair, "Sync")
             .withArgs(token0Amount, token1Amount)
             .to.emit(pair, "Mint")
@@ -290,14 +299,14 @@ describe("AqueductV1Router", () => {
                 ethers.constants.MaxUint256
             )
         )
-            /*.to.emit(pair, "Transfer")
+            .to.emit(pair, "Transfer")
             .withArgs(wallet.address, pair.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
             .to.emit(pair, "Transfer")
             .withArgs(pair.address, ethers.constants.AddressZero, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
-            .to.emit(token0, "Transfer")
+            .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer")
             .withArgs(pair.address, wallet.address, token0Amount.sub(500))
-            .to.emit(token1, "Transfer")
-            .withArgs(pair.address, wallet.address, token1Amount.sub(2000))*/
+            .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer")
+            .withArgs(pair.address, wallet.address, token1Amount.sub(2000))
             .to.emit(pair, "Sync")
             .withArgs(500, 2000)
             .to.emit(pair, "Burn")
@@ -370,5 +379,155 @@ describe("AqueductV1Router", () => {
             r,
             s
         );
+    });
+
+    describe("swapExactTokensForTokens", () => {
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        const swapAmount = expandTo18Decimals(1);
+        const expectedOutputAmount = BigNumber.from("1662497915624478906");
+
+        it("happy path", async () => {
+            const { router02, token0, token1, wallet, pair } = await loadFixture(v2Fixture);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
+            await pair.mint(wallet.address);
+
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+
+            await expect(
+                router02.swapExactTokensForTokens(
+                    swapAmount,
+                    0,
+                    [token0.address, token1.address],
+                    wallet.address,
+                    ethers.constants.MaxUint256
+                )
+            )
+                .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer")
+                .withArgs(wallet.address, pair.address, swapAmount)
+                .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer")
+                .withArgs(pair.address, wallet.address, expectedOutputAmount)
+                .to.emit(pair, "Sync")
+                .withArgs(token0Amount.add(swapAmount), token1Amount.sub(expectedOutputAmount))
+                .to.emit(pair, "Swap")
+                .withArgs(router02.address, swapAmount, 0, 0, expectedOutputAmount, wallet.address);
+        });
+
+        it("amounts", async () => {
+            const { router02, token0, token1, wallet, pair, RouterEmit, factoryV2 } = await loadFixture(v2Fixture);
+
+            // need to allow RouterEmit to call swap() (it's using router02.delegateCall())
+            await factoryV2.setAuction(RouterEmit.address);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
+            await pair.mint(wallet.address);
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+
+            await token0.approve({ receiver: RouterEmit.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+            await expect(
+                RouterEmit.swapExactTokensForTokens(
+                    router02.address,
+                    swapAmount,
+                    0,
+                    [token0.address, token1.address],
+                    wallet.address,
+                    ethers.constants.MaxUint256
+                )
+            )
+                .to.emit(RouterEmit, "Amounts")
+                .withArgs([swapAmount, expectedOutputAmount]);
+        });
+
+        it("gas", async () => {
+            const { router02, token0, token1, wallet, pair } = await loadFixture(v2Fixture);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
+            await pair.mint(wallet.address);
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+
+            // ensure that setting price{0,1}CumulativeLast for the first time doesn't affect our gas math
+            await time.setNextBlockTimestamp((await ethers.provider.getBlock("latest")).timestamp + 1);
+            await pair.sync();
+
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+            await time.setNextBlockTimestamp((await ethers.provider.getBlock("latest")).timestamp + 1);
+            const tx = await router02.swapExactTokensForTokens(
+                swapAmount,
+                0,
+                [token0.address, token1.address],
+                wallet.address,
+                ethers.constants.MaxUint256
+            );
+            const receipt = await tx.wait();
+            expect(receipt.gasUsed).to.eq(457777, "gas used");
+        });
+    });
+
+    describe("swapTokensForExactTokens", () => {
+        const token0Amount = expandTo18Decimals(5);
+        const token1Amount = expandTo18Decimals(10);
+        const expectedSwapAmount = BigNumber.from("557227237267357629");
+        const outputAmount = expandTo18Decimals(1);
+
+        it("happy path", async () => {
+            const { router02, token0, token1, wallet, pair } = await loadFixture(v2Fixture);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
+            await pair.mint(wallet.address);
+
+            await token0.approve({ receiver: router02.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+            await expect(
+                router02.swapTokensForExactTokens(
+                    outputAmount,
+                    ethers.constants.MaxUint256,
+                    [token0.address, token1.address],
+                    wallet.address,
+                    ethers.constants.MaxUint256
+                )
+            )
+                .to.emit(new ethers.Contract(token0.address, erc20Abi, owner), "Transfer")
+                .withArgs(wallet.address, pair.address, expectedSwapAmount)
+                .to.emit(new ethers.Contract(token1.address, erc20Abi, owner), "Transfer")
+                .withArgs(pair.address, wallet.address, outputAmount)
+                .to.emit(pair, "Sync")
+                .withArgs(token0Amount.add(expectedSwapAmount), token1Amount.sub(outputAmount))
+                .to.emit(pair, "Swap")
+                .withArgs(router02.address, expectedSwapAmount, 0, 0, outputAmount, wallet.address);
+        });
+
+        it("amounts", async () => {
+            const { router02, token0, token1, wallet, pair, RouterEmit, factoryV2 } = await loadFixture(v2Fixture);
+
+            // need to allow RouterEmit to call swap() (it's using router02.delegateCall())
+            await factoryV2.setAuction(RouterEmit.address);
+
+            // before each
+            await token0.transfer({ receiver: pair.address, amount: token0Amount }).exec(wallet);
+            await token1.transfer({ receiver: pair.address, amount: token1Amount }).exec(wallet);
+            await pair.mint(wallet.address);
+
+            await token0.approve({ receiver: RouterEmit.address, amount: ethers.constants.MaxUint256 }).exec(wallet);
+            await expect(
+                RouterEmit.swapTokensForExactTokens(
+                    router02.address,
+                    outputAmount,
+                    ethers.constants.MaxUint256,
+                    [token0.address, token1.address],
+                    wallet.address,
+                    ethers.constants.MaxUint256
+                )
+            )
+                .to.emit(RouterEmit, "Amounts")
+                .withArgs([expectedSwapAmount, outputAmount]);
+        });
     });
 });

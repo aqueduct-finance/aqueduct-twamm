@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {IAqueductV1Factory} from "../interfaces/IAqueductV1Factory.sol";
 import {IAqueductV1Auction} from "../interfaces/IAqueductV1Auction.sol";
-import {AqueductV1Auction} from "../AqueductV1Auction.sol";
 import {AccumulatorOverride} from "./AccumulatorOverride.sol";
 import {IAqueductV1Pair} from "../interfaces/IAqueductV1Pair.sol";
 import {ISuperfluid, ISuperToken, SuperAppDefinitions, ISuperApp} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
@@ -13,7 +12,7 @@ import {ISuperfluid, ISuperToken, SuperAppDefinitions, ISuperApp} from "@superfl
     This contract is a copy of AqueductV1Factory, but deploys AccumulatorOverride instead of AqueductV1Pair
 
     AccumulatorOverride is used to set accumulators to arbitrary values (to test overflow)
-    
+
 */
 
 contract TestFactory is IAqueductV1Factory {
@@ -29,15 +28,14 @@ contract TestFactory is IAqueductV1Factory {
     ISuperfluid immutable host;
 
     // auction
-    IAqueductV1Auction public immutable override auction;
+    IAqueductV1Auction public override auction;
+    address public override auctionSetter;
 
     constructor(address _feeToSetter, ISuperfluid _host) {
         if (address(_host) == address(0)) revert HOST_ZERO_ADDRESS();
         feeToSetter = _feeToSetter;
+        auctionSetter = _feeToSetter; // set auctionSetter the same as fee setter
         host = _host;
-
-        // deploy auction contract
-        auction = new AqueductV1Auction();
     }
 
     function allPairsLength() external view override returns (uint256) {
@@ -73,5 +71,17 @@ contract TestFactory is IAqueductV1Factory {
         if (msg.sender != feeToSetter) revert FACTORY_FORBIDDEN();
         feeToSetter = _feeToSetter;
         emit SetFeeToSetter(_feeToSetter);
+    }
+
+    function setAuction(address _auction) external override {
+        if (msg.sender != auctionSetter) revert FACTORY_FORBIDDEN();
+        auction = IAqueductV1Auction(_auction);
+        emit SetAuction(_auction);
+    }
+
+    function setAuctionSetter(address _auctionSetter) external override {
+        if (msg.sender != auctionSetter) revert FACTORY_FORBIDDEN();
+        auctionSetter = _auctionSetter;
+        emit SetAuctionSetter(_auctionSetter);
     }
 }

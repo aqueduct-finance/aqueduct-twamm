@@ -7,6 +7,8 @@ interface IAqueductV1Factory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
     event SetFeeTo(address feeTo);
     event SetFeeToSetter(address feeToSetter);
+    event SetAuction(address auction);
+    event SetAuctionSetter(address auctionSetter);
 
     error HOST_ZERO_ADDRESS();
     error FACTORY_IDENTICAL_ADDRESSES();
@@ -17,6 +19,8 @@ interface IAqueductV1Factory {
     function feeTo() external view returns (address);
 
     function feeToSetter() external view returns (address);
+
+    function auctionSetter() external view returns (address);
 
     function getPair(address tokenA, address tokenB) external view returns (address pair);
 
@@ -29,6 +33,10 @@ interface IAqueductV1Factory {
     function setFeeTo(address) external;
 
     function setFeeToSetter(address) external;
+
+    function setAuction(address) external;
+
+    function setAuctionSetter(address) external;
 
     function auction() external view returns (IAqueductV1Auction);
 }
