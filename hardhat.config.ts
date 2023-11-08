@@ -20,6 +20,14 @@ const config: HardhatUserConfig = {
         hardhat: {
             blockGasLimit: 30000000,
         },
+        mumbai: {
+            url: process.env.MUMBAI_URL || "",
+            accounts: [process.env.PRIVATE_KEY || ""],
+        },
+        polygon: {
+            url: process.env.POLYGON_URL || "",
+            accounts: [process.env.MAIN_PRIVATE_KEY || ""],
+        },
     },
     solidity: {
         version: "0.8.19",
@@ -32,6 +40,9 @@ const config: HardhatUserConfig = {
                 bytecodeHash: "none",
             },
         },
+    },
+    etherscan: {
+        apiKey: process.env.POLYGONSCAN_API_KEY,
     },
     gasReporter: {
         enabled: process.env.REPORT_GAS !== undefined,
